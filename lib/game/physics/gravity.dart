@@ -1,4 +1,4 @@
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math.dart';
 
 /// Arcade-scale gravitational constant. Not physically accurate — tuned so
 /// planet masses in the 100s-1000s produce visually satisfying curves at

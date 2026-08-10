@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math.dart';
 
 /// A single planet placed in a level: its position, its gravitational
 /// [mass], and its visual/collision [radius].

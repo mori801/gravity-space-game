@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math.dart';
 
 import 'level.dart';
 
@@ -16,7 +16,7 @@ final LevelData _firstOrbit = LevelData(
   launchAngleRangeDeg: 30,
   minLaunchSpeed: 200,
   maxLaunchSpeed: 500,
-  planets: const [
+  planets: [
     PlanetSpec(
       position: Vector2(600, 500),
       mass: 3000,
@@ -37,7 +37,7 @@ final LevelData _slingshot = LevelData(
   launchAngleRangeDeg: 35,
   minLaunchSpeed: 220,
   maxLaunchSpeed: 520,
-  planets: const [
+  planets: [
     PlanetSpec(
       position: Vector2(300, 650),
       mass: 3500,
@@ -64,7 +64,7 @@ final LevelData _threadingTheNeedle = LevelData(
   launchAngleRangeDeg: 40,
   minLaunchSpeed: 250,
   maxLaunchSpeed: 550,
-  planets: const [
+  planets: [
     PlanetSpec(
       position: Vector2(250, 900),
       mass: 3000,

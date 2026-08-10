@@ -1,4 +1,4 @@
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math.dart';
 
 /// Returns true if the line segment from [start] to [end] passes through,
 /// touches, or starts inside the circle centered at [center] with the
