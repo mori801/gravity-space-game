@@ -15,6 +15,22 @@ This is an MVP: one full game loop (menu → level select → play → win/lose 
 replay) across three hand-tuned levels. No fuel system, timers, or IAP —
 those are deliberately out of scope for now.
 
+## Im Browser testen (auch am iPhone, kein Mac nötig)
+
+Jeder Push auf `claude/mobile-game-ios-android-ky9qrz` baut die Web-Version
+automatisch per GitHub Actions und veröffentlicht sie über GitHub Pages:
+
+**https://mori801.github.io/Mobile-Handy-Game/**
+
+Diesen Link einfach direkt in Safari (oder jedem anderen Browser) öffnen —
+kein Xcode, kein Mac, keine Installation nötig. Das ist der schnellste Weg,
+das Spiel auf dem iPhone auszuprobieren.
+
+Einmalige Einrichtung (nur beim allerersten Mal nötig): in den
+Repo-Einstellungen unter **Settings → Pages** bei **Source** auf
+**"GitHub Actions"** umstellen (Standard ist "Deploy from a branch", das
+funktioniert hier nicht). Danach läuft alles automatisch bei jedem Push.
+
 ## Project layout
 
 ```
@@ -44,6 +60,7 @@ flutter pub get
 flutter analyze
 flutter test
 flutter run            # run on a connected device or simulator/emulator
+flutter run -d chrome  # or: run directly in a desktop browser
 ```
 
 `flutter create .` detects the existing `pubspec.yaml`/`lib/` and only adds
