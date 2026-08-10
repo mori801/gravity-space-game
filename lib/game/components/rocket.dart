@@ -35,8 +35,24 @@ class Rocket extends PositionComponent {
   double _facingAngleRad;
   final List<Vector2> _trail = [];
 
+  /// Current touch-drag aim direction, shown as a briefly-visible arrow
+  /// that fades out so the player doesn't get a permanent readout of the
+  /// exact launch direction — see [setAim].
+  double? _aimAngleRad;
+  double _aimOpacity = 0;
+  static const double _aimFadeDuration = 0.6;
+  static const double _aimArrowLength = 34;
+
   final Paint _bodyPaint = Paint()..color = const Color(0xFFFFFFFF);
   final Paint _trailPaint = Paint()..color = const Color(0xFFFFFFFF);
+
+  /// Called while the player drags to aim, with the resulting launch angle
+  /// in radians (same convention as [_facingAngleRad]). Makes the fading
+  /// aim arrow flash back to full visibility.
+  void setAim(double angleRad) {
+    _aimAngleRad = angleRad;
+    _aimOpacity = 1;
+  }
 
   /// Sets the rocket in motion with the given initial velocity. Call
   /// [reset] first if the rocket has already flown this level once.
@@ -45,6 +61,8 @@ class Rocket extends PositionComponent {
     previousPosition.setFrom(position);
     launched = true;
     _trail.clear();
+    _aimAngleRad = null;
+    _aimOpacity = 0;
     if (velocity.length2 > 0) {
       _facingAngleRad = math.atan2(velocity.y, velocity.x);
     }
@@ -59,11 +77,18 @@ class Rocket extends PositionComponent {
     launched = false;
     _facingAngleRad = facingAngleRad;
     _trail.clear();
+    _aimAngleRad = null;
+    _aimOpacity = 0;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+
+    if (_aimOpacity > 0) {
+      _aimOpacity = (_aimOpacity - dt / _aimFadeDuration).clamp(0.0, 1.0);
+    }
+
     if (!launched) {
       return;
     }
@@ -98,7 +123,38 @@ class Rocket extends PositionComponent {
   @override
   void render(Canvas canvas) {
     _renderTrail(canvas);
+    _renderAim(canvas);
     _renderBody(canvas);
+  }
+
+  void _renderAim(Canvas canvas) {
+    final angle = _aimAngleRad;
+    if (angle == null || _aimOpacity <= 0) {
+      return;
+    }
+
+    final dir = Offset(math.cos(angle), math.sin(angle));
+    final start = dir * (size.x / 2 + 6);
+    final end = dir * (size.x / 2 + 6 + _aimArrowLength);
+    final color = const Color(0xFFFFD24C).withOpacity(_aimOpacity);
+
+    canvas.drawLine(
+      start,
+      end,
+      Paint()
+        ..color = color
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final perp = Offset(-dir.dy, dir.dx);
+    final headBase = end - dir * 9;
+    final headPath = Path()
+      ..moveTo(end.dx, end.dy)
+      ..lineTo((headBase + perp * 5).dx, (headBase + perp * 5).dy)
+      ..lineTo((headBase - perp * 5).dx, (headBase - perp * 5).dy)
+      ..close();
+    canvas.drawPath(headPath, Paint()..color = color);
   }
 
   void _renderTrail(Canvas canvas) {
