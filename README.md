@@ -56,6 +56,50 @@ if `pub get` reports a version conflict against your installed Flutter SDK,
 bump the affected package(s) in `pubspec.yaml`; that's expected housekeeping,
 not a sign of a deeper bug.
 
+## Auf dem iPhone testen (kostenlos, ohne Apple Developer Account)
+
+Eine iOS-App bauen und signieren geht nur über Xcode auf einem Mac — das ist
+eine Apple-Vorgabe, kein Flutter-Detail. Mit einem eigenen Mac und einer
+kostenlosen Apple-ID (kein 99$/Jahr Developer Account nötig) kommst du so
+direkt auf dein iPhone:
+
+1. **Flutter auf dem Mac installieren**, falls noch nicht vorhanden: siehe
+   [docs.flutter.dev/get-started/install/macos](https://docs.flutter.dev/get-started/install/macos).
+   Danach `flutter doctor` ausführen — meldet es fehlendes Xcode
+   (App Store) oder CocoaPods (`sudo gem install cocoapods`), das zuerst
+   nachholen.
+2. Repo klonen und den Branch `claude/mobile-game-ios-android-ky9qrz`
+   auschecken.
+3. Im Projektordner: `flutter create .` (erzeugt den `ios/`-Ordner passend
+   zum vorhandenen `pubspec.yaml`/`lib/`, siehe Abschnitt oben), danach
+   `flutter pub get`.
+4. iPhone per Kabel anschließen (oder Wireless Debugging in Xcode
+   einrichten) und dem Mac auf dem iPhone vertrauen, falls gefragt.
+5. Auf dem iPhone: **Einstellungen → Datenschutz & Sicherheit →
+   Entwicklermodus** aktivieren (bei neueren iOS-Versionen nötig, um
+   selbst gebaute Apps auszuführen).
+6. `ios/Runner.xcworkspace` (nicht die `.xcodeproj`!) in Xcode öffnen, unter
+   **Signing & Capabilities** "Automatically manage signing" aktivieren und
+   deine Apple-ID als Team auswählen — Xcode erstellt automatisch ein
+   kostenloses Personal-Team-Zertifikat, kein bezahlter Account nötig.
+7. Das iPhone als Zielgerät auswählen und in Xcode auf "Run" (▶) drücken,
+   oder alternativ im Terminal `flutter run` mit angeschlossenem Gerät —
+   installiert und startet das Spiel direkt auf dem Handy.
+8. Falls das iPhone das Entwicklerzertifikat nicht sofort akzeptiert: unter
+   **Einstellungen → Allgemein → VPN & Geräteverwaltung** dem Zertifikat
+   vertrauen.
+
+**Wichtige Einschränkung:** Kostenlose Personal-Team-Signaturen laufen nach
+**7 Tagen ab**. Die App startet danach nicht mehr, bis du Schritt 7 vom Mac
+aus wiederholst (kurzer Vorgang, kein erneutes Setup nötig).
+
+**Später, falls das Spiel sich lohnt:** Ein Wechsel zum Apple Developer
+Program (99$/Jahr) ermöglicht TestFlight-Verteilung ohne 7-Tage-Limit und
+ohne dass du jedes Mal den Mac brauchst — dafür bietet sich z. B.
+[Codemagic](https://codemagic.io) als Cloud-Build-Dienst an, den man
+komplett über den Browser (auch vom Handy aus) verwaltet. Das ist noch nicht
+eingerichtet, kann aber bei Bedarf ergänzt werden.
+
 ## Testing
 
 - `test/physics/*_test.dart` and `test/levels/level_data_test.dart` are pure
