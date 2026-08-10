@@ -21,13 +21,22 @@ enum LoseReason { crash, outOfBounds }
 class GravityRocketGame extends FlameGame {
   GravityRocketGame({required this.level});
 
-  final LevelData level;
+  /// The level currently being played. Mutable so [loadLevel] can swap in
+  /// a new [LevelData] on an already-running game instance instead of the
+  /// caller having to construct a whole new [GravityRocketGame].
+  LevelData level;
 
   GameStatus status = GameStatus.ready;
   LoseReason? loseReason;
 
-  late final Rocket rocket;
-  late final Target target;
+  late Rocket rocket;
+  late Target target;
+
+  /// The `power`/`angleOffset` most recently passed to [launch], remembered
+  /// so [retrySameShot] can repeat an attempt exactly without the player
+  /// having to re-aim and re-charge. Null until the first real launch.
+  double? lastLaunchPower;
+  double? lastLaunchAngleOffset;
 
   /// How far outside the nominal play bounds the rocket is allowed to
   /// stray before the run is judged lost, to avoid a harsh cutoff right
@@ -40,7 +49,14 @@ class GravityRocketGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    _buildLevel();
+  }
 
+  /// Builds the camera framing and all of [level]'s components (planets,
+  /// target, rocket) into [world]. Shared by [onLoad] (first level) and
+  /// [loadLevel] (swapping to a later level in-place) so the two never
+  /// drift apart.
+  void _buildLevel() {
     camera.viewfinder.visibleGameSize = Vector2(
       level.playBounds.width,
       level.playBounds.height,
@@ -76,6 +92,30 @@ class GravityRocketGame extends FlameGame {
     world.add(rocket);
   }
 
+  /// Swaps the running game over to [newLevel] in place, without pushing a
+  /// new route or rebuilding the [GameWidget]/[GravityRocketGame] — this is
+  /// what "Next Level" uses so advancing feels instant instead of paying
+  /// for a full screen transition and a fresh [onLoad]. Tears down the
+  /// current level's components, rebuilds everything [_buildLevel] builds
+  /// on first load, and resets run state to a fresh "ready" attempt,
+  /// mirroring the state reset in [resetLevel].
+  void loadLevel(LevelData newLevel) {
+    world.removeAll(world.children.query<Planet>());
+    world.remove(target);
+    world.remove(rocket);
+
+    level = newLevel;
+    lastLaunchPower = null;
+    lastLaunchAngleOffset = null;
+    _buildLevel();
+
+    status = GameStatus.ready;
+    loseReason = null;
+    overlays.remove('WinOverlay');
+    overlays.remove('LoseOverlay');
+    resumeEngine();
+  }
+
   /// Launches the rocket using [power] (0.0-1.0, mapped to the level's
   /// speed range) and [angleOffset] (-1.0-1.0, mapped to the level's
   /// steerable angle range around straight up).
@@ -83,6 +123,9 @@ class GravityRocketGame extends FlameGame {
     if (status != GameStatus.ready) {
       return;
     }
+
+    lastLaunchPower = power;
+    lastLaunchAngleOffset = angleOffset;
 
     final clampedPower = power.clamp(0.0, 1.0);
     final clampedAngleOffset = angleOffset.clamp(-1.0, 1.0);
@@ -112,6 +155,21 @@ class GravityRocketGame extends FlameGame {
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
     resumeEngine();
+  }
+
+  /// Resets the level and immediately relaunches with the exact same
+  /// `power`/`angleOffset` as the most recent [launch] call — a one-tap
+  /// "repeat that attempt" fast path that skips re-aiming and re-charging.
+  /// Only meaningful once at least one real launch has happened, which is
+  /// always true by the time a lose overlay can be showing.
+  void retrySameShot() {
+    final power = lastLaunchPower;
+    final angleOffset = lastLaunchAngleOffset;
+    if (power == null || angleOffset == null) {
+      return;
+    }
+    resetLevel();
+    launch(power: power, angleOffset: angleOffset);
   }
 
   @override
@@ -164,6 +222,13 @@ class GravityRocketGame extends FlameGame {
 
   void _win() {
     status = GameStatus.won;
+    // Fires the one-shot win flash before the engine pauses, so its start
+    // timestamp is captured at the exact instant of victory and the paused
+    // frame reads as an impact rather than a dead stop. pauseEngine() and
+    // overlays.add() below run back-to-back synchronously with nothing
+    // awaited in between, so there's no artificial delay before the result
+    // UI becomes visible.
+    rocket.triggerWinFlash();
     pauseEngine();
     overlays.add('WinOverlay');
   }
@@ -171,6 +236,7 @@ class GravityRocketGame extends FlameGame {
   void _lose(LoseReason reason) {
     status = GameStatus.lost;
     loseReason = reason;
+    rocket.triggerCrashFlash();
     pauseEngine();
     overlays.add('LoseOverlay');
   }

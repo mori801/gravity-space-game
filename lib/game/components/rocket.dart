@@ -63,6 +63,9 @@ class Rocket extends PositionComponent {
   // a bright or similarly-coloured planet.
   static const Color _aimOutlineColor = Color(0xFF04061A);
 
+  static const Color _winFlashColor = Color(0xFF4CFFB0);
+  static const Color _crashFlashColor = Color(0xFFFF4C4C);
+
   /// Half-width, in radians, of the angle range the player is allowed to
   /// steer within (mirrors `LevelData.launchAngleRangeDeg`). Purely
   /// cosmetic: draws a faint gauge arc around the rocket so the aim arrow
@@ -88,6 +91,36 @@ class Rocket extends PositionComponent {
   /// the first launch.
   double _launchPulseT = double.infinity;
   static const double _launchPulseDuration = 0.5;
+
+  /// Wall-clock timestamp a one-shot win/crash result flash was triggered
+  /// at, or null when none is active/pending. This is deliberately timed
+  /// off the real clock instead of the game-time counters above (like
+  /// [_launchPulseT], which only advances inside [update]): the game class
+  /// calls [triggerWinFlash]/[triggerCrashFlash] immediately before
+  /// `pauseEngine()`, which stops `update()` from running at all, so a
+  /// game-time counter would never progress past its very first frame.
+  /// `render()` keeps being invoked every frame even while the engine is
+  /// paused (only the update loop halts — the paused canvas stays visible
+  /// and painted behind the win/lose overlay), so a wall-clock check inside
+  /// [_renderResultFlash] animates correctly regardless of pause state.
+  DateTime? _resultFlashStartedAt;
+  bool _resultFlashIsWin = false;
+  static const Duration _resultFlashDuration = Duration(milliseconds: 380);
+
+  /// Called by [GravityRocketGame._win] at the instant the level is won,
+  /// right before it pauses the engine, so the flash's start time is
+  /// captured before rendering freezes on the final frame.
+  void triggerWinFlash() {
+    _resultFlashStartedAt = DateTime.now();
+    _resultFlashIsWin = true;
+  }
+
+  /// Called by [GravityRocketGame._lose] at the instant the level is lost
+  /// (crash or out-of-bounds), right before it pauses the engine.
+  void triggerCrashFlash() {
+    _resultFlashStartedAt = DateTime.now();
+    _resultFlashIsWin = false;
+  }
 
   /// Called while the player drags to aim, with the resulting launch angle
   /// in radians (same convention as [_facingAngleRad]). Makes the aim
@@ -116,6 +149,7 @@ class Rocket extends PositionComponent {
     _aimOpacity = 0;
     _chargePower = 0;
     _launchPulseT = 0;
+    _resultFlashStartedAt = null;
     if (velocity.length2 > 0) {
       _facingAngleRad = math.atan2(velocity.y, velocity.x);
     }
@@ -135,6 +169,7 @@ class Rocket extends PositionComponent {
     // Charge is a transient interaction state (unlike the remembered aim
     // angle) — a retry should never start with a "pre-charged" arrow.
     _chargePower = 0;
+    _resultFlashStartedAt = null;
     if (_aimAngleRad != null) {
       _aimOpacity = _aimRestingOpacity;
     }
@@ -194,6 +229,7 @@ class Rocket extends PositionComponent {
     }
     _renderAim(canvas);
     _renderBody(canvas);
+    _renderResultFlash(canvas);
   }
 
   /// Faint dashed arc spanning the steerable angle range, with tick marks
@@ -357,6 +393,59 @@ class Rocket extends PositionComponent {
         ..color = _aimColor.withOpacity(opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
+    );
+  }
+
+  /// One-shot radial burst drawn at the rocket's position the instant a run
+  /// is won or lost (see [triggerWinFlash]/[triggerCrashFlash]), so the
+  /// frame that freezes behind the win/lose overlay reads as an impact
+  /// instead of a dead stop. Progress is computed from wall-clock elapsed
+  /// time (see [_resultFlashStartedAt] for why), so it animates correctly
+  /// across however many more times `render()` happens to be called after
+  /// `pauseEngine()`, and still degrades gracefully to a single sensible
+  /// frame if it were only called once.
+  void _renderResultFlash(Canvas canvas) {
+    final startedAt = _resultFlashStartedAt;
+    if (startedAt == null) {
+      return;
+    }
+
+    final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+    final durationMs = _resultFlashDuration.inMilliseconds;
+    if (elapsedMs >= durationMs) {
+      return;
+    }
+
+    final t = (elapsedMs / durationMs).clamp(0.0, 1.0);
+    final color = _resultFlashIsWin ? _winFlashColor : _crashFlashColor;
+
+    // Bright core flash, brightest at t=0 and quickly fading/blooming out.
+    canvas.drawCircle(
+      Offset.zero,
+      size.x * (0.6 + t * 0.5),
+      Paint()
+        ..color = color.withOpacity((1 - t) * 0.85)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20),
+    );
+
+    // Expanding ring that outruns the core, echoing _renderLaunchPulse.
+    final ringRadius = size.x * 0.5 + t * 80;
+    final ringOpacity = (1 - t) * 0.9;
+    canvas.drawCircle(
+      Offset.zero,
+      ringRadius,
+      Paint()
+        ..color = color.withOpacity(ringOpacity)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+    canvas.drawCircle(
+      Offset.zero,
+      ringRadius,
+      Paint()
+        ..color = Colors.white.withOpacity(ringOpacity * 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
   }
 
