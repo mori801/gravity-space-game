@@ -71,6 +71,7 @@ class GravityRocketGame extends FlameGame {
     rocket = Rocket(
       position: level.rocketStart.clone(),
       initialFacingAngleRad: _degToRad(level.baseLaunchAngleDeg),
+      steerRangeRad: _degToRad(level.launchAngleRangeDeg),
     );
     world.add(rocket);
   }
