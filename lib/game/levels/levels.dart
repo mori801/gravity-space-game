@@ -125,6 +125,7 @@ LevelData _generatedLevel({
   required List<double> planetMasses,
   required List<double> planetRadii,
   required List<Color> planetColors,
+  List<double> noFlyZoneRadii = const <double>[],
 }) {
   final planetCount = planetMasses.length;
   final usableHeight = height - 550;
@@ -143,6 +144,27 @@ LevelData _generatedLevel({
       ),
   ];
 
+  // Zones are centered horizontally and spread across the middle 60% of
+  // the same usable vertical band the planets use above, so — just like
+  // the planets — they're placed well clear of the rocket-start row near
+  // the bottom (height - 100) and the target near the top (y = 130) by
+  // construction, without needing per-level manual distance checks.
+  final noFlyZoneCount = noFlyZoneRadii.length;
+  final noFlyZones = <NoFlyZoneSpec>[
+    for (var z = 0; z < noFlyZoneCount; z++)
+      NoFlyZoneSpec(
+        position: Vector2(
+          width / 2,
+          350 +
+              usableHeight *
+                  (noFlyZoneCount == 1
+                      ? 0.5
+                      : 0.2 + 0.6 * z / (noFlyZoneCount - 1)),
+        ),
+        radius: noFlyZoneRadii[z],
+      ),
+  ];
+
   return LevelData(
     id: id,
     name: name,
@@ -155,6 +177,7 @@ LevelData _generatedLevel({
     targetPosition: Vector2(width * targetXFrac, 130),
     targetRadius: targetRadius,
     playBounds: Rect.fromLTWH(0, 0, width, height),
+    noFlyZones: noFlyZones,
   );
 }
 
@@ -233,11 +256,70 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
   );
 });
 
+const List<String> _tier6LevelNames = [
+  'Restricted Approach',
+  'Red Corridor',
+  'Quarantine Belt',
+  'Minefield Run',
+  'Twin Exclusion',
+  'Triple Blockade',
+  'Hazard Nexus',
+  'Full Lockdown',
+];
+
+/// 8 additional levels (tier 6): introduces [NoFlyZoneSpec] hazards as a
+/// second obstacle type alongside planets. Deliberately keeps planet
+/// count low and nearly flat (2-3, vs. tier 5's climb to 5) so the
+/// no-fly zones — not more gravity wells — are this tier's primary new
+/// difficulty axis, ramping from 1 to 3 zones per level across the 8.
+final List<LevelData> _tier6Levels = List.generate(8, (idx) {
+  final planetCount = 2 + idx ~/ 4; // 2,2,2,2,3,3,3,3
+  final noFlyZoneCount = 1 + idx ~/ 3; // 1,1,1,2,2,2,3,3
+
+  final width = 1800.0 + idx * 25;
+  final height = 2200.0 + idx * 25;
+
+  final planetMasses = List<double>.generate(
+    planetCount,
+    (p) => 3200.0 + p * 400 + idx * 30,
+  );
+  final planetRadii = List<double>.generate(
+    planetCount,
+    (p) => 50.0 - p * 6 - idx * 1,
+  );
+  final planetColors = List<Color>.generate(
+    planetCount,
+    (p) => _planetPalette[(idx + p) % _planetPalette.length],
+  );
+  final noFlyZoneRadii = List<double>.generate(
+    noFlyZoneCount,
+    (z) => 42.0 - z * 4 - idx * 1,
+  );
+
+  return _generatedLevel(
+    id: 'level-${29 + idx}',
+    name: _tier6LevelNames[idx],
+    width: width,
+    height: height,
+    launchAngleRangeDeg: 90.0,
+    minSpeed: 230.0 + idx * 6,
+    maxSpeed: 530.0 + idx * 6,
+    targetRadius: 42.0 - idx * 1.5,
+    targetXFrac: idx.isEven ? 0.78 : 0.22,
+    planetMasses: planetMasses,
+    planetRadii: planetRadii,
+    planetColors: planetColors,
+    noFlyZoneRadii: noFlyZoneRadii,
+  );
+});
+
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
-/// 25 procedurally-generated levels of increasing difficulty.
+/// 25 procedurally-generated levels of increasing difficulty, then 8 more
+/// tier-6 levels that add no-fly zone hazards (36 levels, 6 tiers total).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
   _threadingTheNeedle,
   ..._generatedLevels,
+  ..._tier6Levels,
 ];

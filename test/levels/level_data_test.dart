@@ -79,5 +79,28 @@ void main() {
         }
       },
     );
+
+    test('maxShots, if set, is at least 1', () {
+      for (final level in kLevels) {
+        if (level.maxShots != null) {
+          expect(level.maxShots, greaterThanOrEqualTo(1), reason: level.id);
+        }
+      }
+    });
+
+    test('tier 6 levels all have no-fly zones', () {
+      final tier6Ids = List.generate(8, (i) => 'level-${29 + i}');
+      for (final id in tier6Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.noFlyZones, isNotEmpty, reason: id);
+      }
+    });
+
+    test('kLevels has 36 levels total', () {
+      expect(kLevels.length, 36);
+    });
   });
 }

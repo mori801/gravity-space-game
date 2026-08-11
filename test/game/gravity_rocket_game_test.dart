@@ -117,6 +117,69 @@ void main() {
       },
     );
 
+    testWithGame<GravityRocketGame>(
+      'running out of fuel refuses further launches',
+      () => _testGame(
+        LevelData(
+          id: 'test-max-shots',
+          name: 'Test',
+          rocketStart: Vector2(100, 100),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(500, 500),
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+          noFlyZones: [NoFlyZoneSpec(position: Vector2(100, 90), radius: 30)],
+          maxShots: 1,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 1, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.lost);
+        expect(game.loseReason, LoseReason.noFlyZone); // real reason, not overridden
+        expect(game.shotCount, 1);
+
+        game.resetLevel();
+        expect(game.status, GameStatus.ready);
+
+        game.launch(power: 1, angleOffset: 0); // refused: already used the 1 allowed shot
+        expect(game.status, GameStatus.lost);
+        expect(game.loseReason, LoseReason.outOfFuel);
+        expect(game.shotCount, 1); // must not tick past maxShots
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'winning on the last allowed shot still wins',
+      () => _testGame(
+        LevelData(
+          id: 'test-max-shots-win',
+          name: 'Test',
+          rocketStart: Vector2(100, 100),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(100, 100), // same as rocketStart so reaching it is instant
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+          maxShots: 1,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.won); // not preempted by the fuel gate
+      },
+    );
+
     test('starsForShotCount boundaries', () {
       expect(starsForShotCount(1), 3);
       expect(starsForShotCount(2), 2);

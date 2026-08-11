@@ -46,6 +46,7 @@ class LevelData {
     required this.targetRadius,
     required this.playBounds,
     this.noFlyZones = const <NoFlyZoneSpec>[],
+    this.maxShots,
   });
 
   final String id;
@@ -76,4 +77,10 @@ class LevelData {
   /// one ends the run in a loss. Optional — defaults to none, so existing
   /// levels don't need to declare it.
   final List<NoFlyZoneSpec> noFlyZones;
+
+  /// Maximum number of real launches allowed on this level before the run
+  /// ends in [LoseReason.outOfFuel] instead of permitting another attempt.
+  /// `null` (the default) means unlimited, so every existing level is
+  /// unaffected.
+  final int? maxShots;
 }

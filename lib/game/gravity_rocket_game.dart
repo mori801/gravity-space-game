@@ -13,7 +13,7 @@ import 'physics/collision.dart';
 
 enum GameStatus { ready, launched, won, lost }
 
-enum LoseReason { crash, outOfBounds, noFlyZone }
+enum LoseReason { crash, outOfBounds, noFlyZone, outOfFuel }
 
 /// Top-level Flame game for one level: builds the planets/target/rocket
 /// from a [LevelData], drives the launch, and arbitrates win/lose so those
@@ -135,6 +135,18 @@ class GravityRocketGame extends FlameGame {
   /// steerable angle range around straight up).
   void launch({required double power, required double angleOffset}) {
     if (status != GameStatus.ready) {
+      return;
+    }
+
+    final maxShots = level.maxShots;
+    if (maxShots != null && shotCount >= maxShots) {
+      // Every allowed shot has already been used on a previous attempt
+      // (e.g. the player hit Retry after a loss) — refuse to launch again
+      // rather than letting shotCount exceed the level's limit. The real
+      // failure reason for each actual flight is still reported normally
+      // by update(); outOfFuel specifically means "you tried to launch but
+      // have none left."
+      _lose(LoseReason.outOfFuel);
       return;
     }
 

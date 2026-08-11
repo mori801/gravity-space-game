@@ -302,6 +302,56 @@ class _HudOverlayState extends State<HudOverlay>
     );
   }
 
+  /// Compact "N shots left" pill anchored to the top-center, shown only on
+  /// levels that set a [LevelData.maxShots] budget. The vast majority of
+  /// levels leave `maxShots` null, in which case this returns an empty
+  /// [SizedBox] and those levels are visually unaffected. Purely a
+  /// readout — it never mutates game state, so unlike the gesture
+  /// handlers elsewhere in this file it needs no `setState` plumbing of
+  /// its own to stay in sync; it just reflects whatever `build()` was
+  /// last called with.
+  Widget _buildShotsReadout(GravityRocketGame game) {
+    final maxShots = game.level.maxShots;
+    if (maxShots == null) {
+      return const SizedBox.shrink();
+    }
+    final remaining = (maxShots - game.shotCount).clamp(0, maxShots);
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.local_gas_station,
+                  size: 16,
+                  color: Colors.white70,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$remaining shot${remaining == 1 ? '' : 's'} left',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPauseButton(GravityRocketGame game) {
     return SafeArea(
       child: Align(
@@ -389,6 +439,7 @@ class _HudOverlayState extends State<HudOverlay>
         children: [
           _buildPauseButton(game),
           _buildResetButton(game, positionedOffset),
+          _buildShotsReadout(game),
         ],
       );
     }
@@ -547,6 +598,7 @@ class _HudOverlayState extends State<HudOverlay>
             ),
           ),
         ),
+        _buildShotsReadout(game),
       ],
     );
   }
