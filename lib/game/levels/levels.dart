@@ -13,7 +13,9 @@ final LevelData _firstOrbit = LevelData(
   name: 'First Orbit',
   rocketStart: Vector2(400, 1130),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 180,
+  // 90 = a total steerable sweep of 180° (this is the ± half-width around
+  // baseLaunchAngleDeg, so the achievable range is base - 90 .. base + 90).
+  launchAngleRangeDeg: 90,
   minLaunchSpeed: 200,
   maxLaunchSpeed: 500,
   planets: [
@@ -34,7 +36,7 @@ final LevelData _slingshot = LevelData(
   name: 'Slingshot',
   rocketStart: Vector2(450, 1230),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 180,
+  launchAngleRangeDeg: 90,
   minLaunchSpeed: 220,
   maxLaunchSpeed: 520,
   planets: [
@@ -61,7 +63,7 @@ final LevelData _threadingTheNeedle = LevelData(
   name: 'Threading the Needle',
   rocketStart: Vector2(500, 1330),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 180,
+  launchAngleRangeDeg: 90,
   minLaunchSpeed: 250,
   maxLaunchSpeed: 550,
   planets: [
@@ -211,10 +213,11 @@ final List<LevelData> _generatedLevels = List.generate(20, (i) {
     name: _generatedLevelNames[i],
     width: width,
     height: height,
-    // Full 180° steering on every level: angle range is no longer a
-    // difficulty knob (difficulty still comes from planet count, speed,
-    // bounds, and target size, all still tier/indexInTier-driven above).
-    launchAngleRangeDeg: 180.0,
+    // 90 = a total steerable sweep of 180° (± half-width around straight
+    // up). Angle range is no longer a difficulty knob (difficulty still
+    // comes from planet count, speed, bounds, and target size, all still
+    // tier/indexInTier-driven above).
+    launchAngleRangeDeg: 90.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
     targetRadius: 68.0 - tier * 8 - indexInTier * 2,

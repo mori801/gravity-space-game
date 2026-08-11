@@ -174,7 +174,16 @@ class _HudOverlayState extends State<HudOverlay>
     final power = _powerController.value.clamp(_minLaunchPower, 1.0);
     _powerController.stop();
     HapticFeedback.mediumImpact();
-    widget.game.launch(power: power, angleOffset: _angleOffset);
+    // `game.status` is a plain field, not a ValueNotifier/ChangeNotifier —
+    // Flame's GameWidget only rebuilds overlay widgets when the active
+    // overlay *set* changes (via overlays.add/remove) or when this
+    // widget's own State is told to rebuild, never automatically on a
+    // per-frame basis. launch() doesn't touch overlays.add/remove, so
+    // without this setState this build() would keep showing the
+    // pre-launch aim/charge UI instead of switching to the in-flight view.
+    setState(() {
+      widget.game.launch(power: power, angleOffset: _angleOffset);
+    });
     _kickController.forward(from: 0);
     // Snap the ring/arrow charge back to 0 immediately instead of leaving
     // it frozen at the released value (the controller won't otherwise
@@ -327,7 +336,15 @@ class _HudOverlayState extends State<HudOverlay>
             behavior: HitTestBehavior.opaque,
             onTap: () {
               HapticFeedback.selectionClick();
-              game.resetLevel();
+              // See the comment in _release(): game.status doesn't notify
+              // Flutter on its own, and resetLevel() mid-flight doesn't
+              // touch overlays.add/remove either (neither WinOverlay nor
+              // LoseOverlay is active to remove), so nothing would tell
+              // this widget to rebuild and show the aim/charge UI again
+              // without this explicit setState.
+              setState(() {
+                game.resetLevel();
+              });
             },
             child: Padding(
               padding: const EdgeInsets.all(_powerButtonHitPadding),
