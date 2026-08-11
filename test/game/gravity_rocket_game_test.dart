@@ -1,17 +1,33 @@
 import 'dart:ui';
 
 import 'package:flame_test/flame_test.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/gravity_rocket_game.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
 import 'package:vector_math/vector_math.dart';
 
+/// Builds a [GravityRocketGame] for a bare `testWithGame` harness (no
+/// [GameWidget]/`overlayBuilderMap`, unlike the real app in
+/// `lib/screens/game_screen.dart`). `_win()`/`_lose()` call
+/// `overlays.add('WinOverlay'/'LoseOverlay')` unconditionally, and
+/// Flame's `OverlayManager.add` asserts that the name was registered via
+/// `addEntry` first — so any test that can reach a win/loss needs these
+/// registered with a trivial stub builder (their actual widgets are
+/// irrelevant here; nothing renders them in a plain `testWithGame`).
+GravityRocketGame _testGame(LevelData level) {
+  final game = GravityRocketGame(level: level);
+  game.overlays.addEntry('WinOverlay', (context, game) => const SizedBox());
+  game.overlays.addEntry('LoseOverlay', (context, game) => const SizedBox());
+  return game;
+}
+
 void main() {
   group('GravityRocketGame', () {
     testWithGame<GravityRocketGame>(
       'rocket stays put before launch and moves after it',
-      () => GravityRocketGame(level: kLevels.first),
+      () => _testGame(kLevels.first),
       (game) async {
         await game.ready();
 
@@ -37,7 +53,7 @@ void main() {
 
     testWithGame<GravityRocketGame>(
       'reaching the target wins the level',
-      () => GravityRocketGame(level: kLevels.first),
+      () => _testGame(kLevels.first),
       (game) async {
         await game.ready();
 
@@ -51,8 +67,8 @@ void main() {
 
     testWithGame<GravityRocketGame>(
       'entering a no-fly zone loses the level',
-      () => GravityRocketGame(
-        level: LevelData(
+      () => _testGame(
+        LevelData(
           id: 'test-no-fly-zone',
           name: 'Test',
           rocketStart: Vector2(100, 100),
@@ -78,7 +94,7 @@ void main() {
 
     testWithGame<GravityRocketGame>(
       'shotCount increments per launch and resets appropriately',
-      () => GravityRocketGame(level: kLevels.first),
+      () => _testGame(kLevels.first),
       (game) async {
         await game.ready();
         expect(game.shotCount, 0);
