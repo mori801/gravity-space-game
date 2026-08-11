@@ -10,6 +10,7 @@ import 'components/rocket.dart';
 import 'components/target.dart';
 import 'levels/level.dart';
 import 'physics/collision.dart';
+import 'progress.dart';
 
 enum GameStatus { ready, launched, won, lost }
 
@@ -277,6 +278,7 @@ class GravityRocketGame extends FlameGame {
 
   void _win() {
     status = GameStatus.won;
+    LevelProgress.instance.markWon(level.id);
     // Fires the one-shot win flash before the engine pauses, so its start
     // timestamp is captured at the exact instant of victory and the paused
     // frame reads as an impact rather than a dead stop. pauseEngine() and

@@ -126,6 +126,7 @@ LevelData _generatedLevel({
   required List<double> planetRadii,
   required List<Color> planetColors,
   List<double> noFlyZoneRadii = const <double>[],
+  int? maxShots,
 }) {
   final planetCount = planetMasses.length;
   final usableHeight = height - 550;
@@ -178,6 +179,7 @@ LevelData _generatedLevel({
     targetRadius: targetRadius,
     playBounds: Rect.fromLTWH(0, 0, width, height),
     noFlyZones: noFlyZones,
+    maxShots: maxShots,
   );
 }
 
@@ -208,6 +210,18 @@ const List<String> _generatedLevelNames = [
   'The Long Descent',
   'Singularity Run',
 ];
+
+/// Retrofits a shot budget onto a subset of the mid/high-tier generated
+/// levels (keyed by this list's own generation index `i`, not level id).
+/// Every other generated level keeps `maxShots: null` (unlimited),
+/// unchanged from before this iteration.
+const Map<int, int> _generatedMaxShotsByListIndex = {
+  18: 5, // level-22 (tier 3, 4 planets)
+  19: 4, // level-23 (tier 3, 4 planets)
+  22: 5, // level-26 (tier 4, 5 planets)
+  23: 4, // level-27 (tier 4, 5 planets)
+  24: 3, // level-28 (tier 4, 5 planets)
+};
 
 /// 25 additional levels (on top of the 3 hand-tuned ones above), ramping
 /// up in five five-level tiers of 1/2/3/4/5 planets respectively. Every
@@ -253,6 +267,7 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
     planetMasses: planetMasses,
     planetRadii: planetRadii,
     planetColors: planetColors,
+    maxShots: _generatedMaxShotsByListIndex[i],
   );
 });
 
@@ -266,6 +281,16 @@ const List<String> _tier6LevelNames = [
   'Hazard Nexus',
   'Full Lockdown',
 ];
+
+/// Retrofits a shot budget onto the hardest half of the no-fly-zone
+/// tier, combining the fuel mechanic with a hazard it didn't originally
+/// ship with.
+const Map<int, int> _tier6MaxShotsByIdx = {
+  4: 5, // level-33
+  5: 4, // level-34
+  6: 4, // level-35
+  7: 3, // level-36
+};
 
 /// 8 additional levels (tier 6): introduces [NoFlyZoneSpec] hazards as a
 /// second obstacle type alongside planets. Deliberately keeps planet
@@ -310,16 +335,124 @@ final List<LevelData> _tier6Levels = List.generate(8, (idx) {
     planetRadii: planetRadii,
     planetColors: planetColors,
     noFlyZoneRadii: noFlyZoneRadii,
+    maxShots: _tier6MaxShotsByIdx[idx],
+  );
+});
+
+const List<String> _tier7LevelNames = [
+  'Fuel Rationing',
+  'Last Reserves',
+  'Empty Tank Run',
+  'Scorched Corridor',
+  'Vapor Trail',
+  'Dead Stick Landing',
+  'Point of No Return',
+  'Final Descent',
+];
+
+/// maxShots ramp: forgiving (6) at the start of the tier down to tight
+/// (3) at the end, never below 3 so restarting with a fresh budget (see
+/// LoseOverlay._restartLevel) is never the *only* path to victory.
+const Map<int, int> _tier7MaxShotsByIdx = {
+  0: 6, 1: 6, 2: 5, 3: 5, 4: 4, 5: 4, 6: 3, 7: 3,
+};
+
+/// 8 additional levels (tier 7): combines all three obstacle types at
+/// once — multi-planet gravity wells, no-fly zone hazards, and a
+/// maxShots fuel budget — rather than any of them in isolation like
+/// tiers 1-6 each introduced separately.
+final List<LevelData> _tier7Levels = List.generate(8, (idx) {
+  final planetCount = 3 + idx ~/ 4; // 3,3,3,3,4,4,4,4
+  final noFlyZoneCount = 2 + idx ~/ 4; // 2,2,2,2,3,3,3,3
+
+  final width = 2000.0 + idx * 30;
+  final height = 2450.0 + idx * 30;
+
+  final planetMasses = List<double>.generate(
+    planetCount,
+    (p) => 3400.0 + p * 400 + idx * 30,
+  );
+  final planetRadii = List<double>.generate(
+    planetCount,
+    (p) => 48.0 - p * 6 - idx * 1,
+  );
+  final planetColors = List<Color>.generate(
+    planetCount,
+    (p) => _planetPalette[(idx + p) % _planetPalette.length],
+  );
+  final noFlyZoneRadii = List<double>.generate(
+    noFlyZoneCount,
+    (z) => 40.0 - z * 4 - idx * 1,
+  );
+
+  return _generatedLevel(
+    id: 'level-${37 + idx}',
+    name: _tier7LevelNames[idx],
+    width: width,
+    height: height,
+    launchAngleRangeDeg: 90.0,
+    minSpeed: 240.0 + idx * 6,
+    maxSpeed: 540.0 + idx * 6,
+    targetRadius: 40.0 - idx * 1.5,
+    targetXFrac: idx.isEven ? 0.8 : 0.2,
+    planetMasses: planetMasses,
+    planetRadii: planetRadii,
+    planetColors: planetColors,
+    noFlyZoneRadii: noFlyZoneRadii,
+    maxShots: _tier7MaxShotsByIdx[idx],
   );
 });
 
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
-/// 25 procedurally-generated levels of increasing difficulty, then 8 more
-/// tier-6 levels that add no-fly zone hazards (36 levels, 6 tiers total).
+/// 25 procedurally-generated levels of increasing difficulty (5 tiers of
+/// 1-5 planets), then 8 tier-6 levels adding no-fly zone hazards, then 8
+/// tier-7 levels combining planets + no-fly zones + a maxShots fuel
+/// budget (44 levels, 8 tiers total including the tutorial).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
   _threadingTheNeedle,
   ..._generatedLevels,
   ..._tier6Levels,
+  ..._tier7Levels,
+];
+
+/// Describes one named, contiguous section of [kLevels] for level-select
+/// grouping. Built directly from the same private level lists used to
+/// assemble [kLevels] above, so tier boundaries can never drift out of
+/// sync with the real roster.
+class LevelSection {
+  const LevelSection({required this.title, required this.levels});
+
+  final String title;
+  final List<LevelData> levels;
+}
+
+final List<LevelSection> kLevelSections = [
+  LevelSection(
+    title: 'Tutorial',
+    levels: [_firstOrbit, _slingshot, _threadingTheNeedle],
+  ),
+  LevelSection(
+    title: 'Tier 1 · Single Planet',
+    levels: _generatedLevels.sublist(0, 5),
+  ),
+  LevelSection(
+    title: 'Tier 2 · Twin Planets',
+    levels: _generatedLevels.sublist(5, 10),
+  ),
+  LevelSection(
+    title: 'Tier 3 · Triple Planets',
+    levels: _generatedLevels.sublist(10, 15),
+  ),
+  LevelSection(
+    title: 'Tier 4 · Four Planets',
+    levels: _generatedLevels.sublist(15, 20),
+  ),
+  LevelSection(
+    title: 'Tier 5 · Five Planets',
+    levels: _generatedLevels.sublist(20, 25),
+  ),
+  LevelSection(title: 'Tier 6 · No-Fly Zones', levels: _tier6Levels),
+  LevelSection(title: 'Tier 7 · Fuel & Hazards', levels: _tier7Levels),
 ];

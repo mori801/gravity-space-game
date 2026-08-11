@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/gravity_rocket_game.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
+import 'package:gravity_rocket_launcher/game/progress.dart';
 import 'package:vector_math/vector_math.dart';
 
 /// Builds a [GravityRocketGame] for a bare `testWithGame` harness (no
@@ -177,6 +178,106 @@ void main() {
         game.launch(power: 0, angleOffset: 0);
         game.update(1 / 60);
         expect(game.status, GameStatus.won); // not preempted by the fuel gate
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'maxShots + no-fly zone + planet combo: budget exhausts correctly',
+      () => _testGame(
+        LevelData(
+          id: 'test-tier7-combo',
+          name: 'Test',
+          rocketStart: Vector2(100, 100),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: [
+            PlanetSpec(
+              position: Vector2(400, 400),
+              mass: 1,
+              radius: 10,
+              color: const Color(0xFF000000),
+            ),
+          ],
+          targetPosition: Vector2(900, 900),
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+          noFlyZones: [NoFlyZoneSpec(position: Vector2(100, 90), radius: 30)],
+          maxShots: 2,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        game.launch(power: 1, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.loseReason, LoseReason.noFlyZone);
+        expect(game.shotCount, 1);
+
+        game.resetLevel();
+        game.launch(power: 1, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.loseReason, LoseReason.noFlyZone);
+        expect(game.shotCount, 2);
+
+        game.resetLevel();
+        game.launch(power: 1, angleOffset: 0); // budget exhausted -> refused
+        expect(game.loseReason, LoseReason.outOfFuel);
+        expect(game.shotCount, 2); // must not tick past maxShots
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'winning on the last shot wins even with planets and no-fly zones present',
+      () => _testGame(
+        LevelData(
+          id: 'test-tier7-combo-win',
+          name: 'Test',
+          rocketStart: Vector2(100, 100),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: [
+            PlanetSpec(
+              position: Vector2(500, 500),
+              mass: 1,
+              radius: 10,
+              color: const Color(0xFF000000),
+            ),
+          ],
+          targetPosition: Vector2(100, 100), // same as rocketStart: instant win
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+          noFlyZones: [NoFlyZoneSpec(position: Vector2(900, 900), radius: 30)],
+          maxShots: 1,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.won);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'winning marks the level as won in LevelProgress',
+      () => _testGame(kLevels.first),
+      (game) async {
+        LevelProgress.instance.resetForTest();
+        addTearDown(LevelProgress.instance.resetForTest);
+        await game.ready();
+        expect(LevelProgress.instance.isWon(kLevels.first.id), isFalse);
+
+        game.rocket.position.setFrom(game.target.position);
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+
+        expect(game.status, GameStatus.won);
+        expect(LevelProgress.instance.isWon(kLevels.first.id), isTrue);
+        expect(LevelProgress.instance.isWon(kLevels[1].id), isFalse);
       },
     );
 

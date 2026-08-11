@@ -99,8 +99,31 @@ void main() {
       }
     });
 
-    test('kLevels has 36 levels total', () {
-      expect(kLevels.length, 36);
+    test('kLevels has 44 levels total', () {
+      expect(kLevels.length, 44);
+    });
+
+    test('tier 7 levels combine no-fly zones with a maxShots budget', () {
+      final tier7Ids = List.generate(8, (i) => 'level-${37 + i}');
+      for (final id in tier7Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.noFlyZones, isNotEmpty, reason: id);
+        expect(level.maxShots, isNotNull, reason: id);
+      }
+    });
+
+    test('exactly the expected levels have a maxShots budget', () {
+      final expectedIds = {
+        'level-22', 'level-23', 'level-26', 'level-27', 'level-28',
+        'level-33', 'level-34', 'level-35', 'level-36',
+        for (var i = 0; i < 8; i++) 'level-${37 + i}',
+      };
+      final actualIds =
+          kLevels.where((l) => l.maxShots != null).map((l) => l.id).toSet();
+      expect(actualIds, expectedIds);
     });
   });
 }
