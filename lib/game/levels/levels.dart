@@ -179,15 +179,20 @@ const List<String> _generatedLevelNames = [
   'Dark Nebula',
   'Event Horizon',
   'Final Frontier',
+  'Five-Body Problem',
+  'Outer Rim',
+  'Planetary Gauntlet',
+  'The Long Descent',
+  'Singularity Run',
 ];
 
-/// 20 additional levels (on top of the 3 hand-tuned ones above), ramping
-/// up in four five-level tiers of 1/2/3/4 planets respectively. Every
+/// 25 additional levels (on top of the 3 hand-tuned ones above), ramping
+/// up in five five-level tiers of 1/2/3/4/5 planets respectively. Every
 /// numeric parameter is derived from [tier] and [indexInTier] so the
 /// whole batch is generated rather than hand-typed, keeping it easy to
 /// reason about correctness (see [_generatedLevel]) without a local
 /// Dart/Flutter toolchain to run `level_data_test.dart` against.
-final List<LevelData> _generatedLevels = List.generate(20, (i) {
+final List<LevelData> _generatedLevels = List.generate(25, (i) {
   final tier = i ~/ 5;
   final indexInTier = i % 5;
   final planetCount = tier + 1;
@@ -229,7 +234,7 @@ final List<LevelData> _generatedLevels = List.generate(20, (i) {
 });
 
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
-/// 20 procedurally-generated levels of increasing difficulty.
+/// 25 procedurally-generated levels of increasing difficulty.
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,

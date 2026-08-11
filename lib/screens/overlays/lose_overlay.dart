@@ -99,11 +99,13 @@ class _LoseOverlayState extends State<LoseOverlay>
     final reasonIcon = switch (widget.game.loseReason) {
       LoseReason.crash => Icons.warning_amber_rounded,
       LoseReason.outOfBounds => Icons.open_in_full,
+      LoseReason.noFlyZone => Icons.block,
       null => Icons.error_outline,
     };
     final reasonLabel = switch (widget.game.loseReason) {
       LoseReason.crash => 'Crashed',
       LoseReason.outOfBounds => 'Off course',
+      LoseReason.noFlyZone => 'No-fly zone',
       null => 'Failed',
     };
     final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;

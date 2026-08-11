@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 
+import 'components/no_fly_zone.dart';
 import 'components/planet.dart';
 import 'components/rocket.dart';
 import 'components/target.dart';
@@ -12,7 +13,7 @@ import 'physics/collision.dart';
 
 enum GameStatus { ready, launched, won, lost }
 
-enum LoseReason { crash, outOfBounds }
+enum LoseReason { crash, outOfBounds, noFlyZone }
 
 /// Top-level Flame game for one level: builds the planets/target/rocket
 /// from a [LevelData], drives the launch, and arbitrates win/lose so those
@@ -28,6 +29,11 @@ class GravityRocketGame extends FlameGame {
 
   GameStatus status = GameStatus.ready;
   LoseReason? loseReason;
+
+  /// Number of real launches taken on the current run (since the level was
+  /// loaded, or since the last win). Drives [starsForShotCount] on the win
+  /// overlay.
+  int shotCount = 0;
 
   late Rocket rocket;
   late Target target;
@@ -53,9 +59,9 @@ class GravityRocketGame extends FlameGame {
   }
 
   /// Builds the camera framing and all of [level]'s components (planets,
-  /// target, rocket) into [world]. Shared by [onLoad] (first level) and
-  /// [loadLevel] (swapping to a later level in-place) so the two never
-  /// drift apart.
+  /// no-fly zones, target, rocket) into [world]. Shared by [onLoad] (first
+  /// level) and [loadLevel] (swapping to a later level in-place) so the two
+  /// never drift apart.
   void _buildLevel() {
     camera.viewfinder.visibleGameSize = Vector2(
       level.playBounds.width,
@@ -75,6 +81,12 @@ class GravityRocketGame extends FlameGame {
           mass: planetSpec.mass,
           color: planetSpec.color,
         ),
+      );
+    }
+
+    for (final zoneSpec in level.noFlyZones) {
+      world.add(
+        NoFlyZone(position: zoneSpec.position, radius: zoneSpec.radius),
       );
     }
 
@@ -101,12 +113,14 @@ class GravityRocketGame extends FlameGame {
   /// mirroring the state reset in [resetLevel].
   void loadLevel(LevelData newLevel) {
     world.removeAll(world.children.query<Planet>());
+    world.removeAll(world.children.query<NoFlyZone>());
     world.remove(target);
     world.remove(rocket);
 
     level = newLevel;
     lastLaunchPower = null;
     lastLaunchAngleOffset = null;
+    shotCount = 0;
     _buildLevel();
 
     status = GameStatus.ready;
@@ -123,6 +137,8 @@ class GravityRocketGame extends FlameGame {
     if (status != GameStatus.ready) {
       return;
     }
+
+    shotCount++;
 
     lastLaunchPower = power;
     lastLaunchAngleOffset = angleOffset;
@@ -146,6 +162,13 @@ class GravityRocketGame extends FlameGame {
 
   /// Returns the rocket to its start position, ready to be launched again.
   void resetLevel() {
+    // A retry from an already-won state (e.g. WinOverlay's "Retry", to
+    // try for a better star rating) starts a fresh shot count; an
+    // ordinary mid-run loss-retry keeps accumulating so the count still
+    // reflects total attempts-to-win.
+    if (status == GameStatus.won) {
+      shotCount = 0;
+    }
     rocket.reset(
       startPosition: level.rocketStart.clone(),
       facingAngleRad: _degToRad(level.baseLaunchAngleDeg),
@@ -190,6 +213,11 @@ class GravityRocketGame extends FlameGame {
       return;
     }
 
+    if (_hasEnteredNoFlyZone()) {
+      _lose(LoseReason.noFlyZone);
+      return;
+    }
+
     if (_isOutOfBounds()) {
       _lose(LoseReason.outOfBounds);
     }
@@ -207,6 +235,21 @@ class GravityRocketGame extends FlameGame {
         end: rocket.position,
         center: planet.position,
         radius: planet.radius,
+      );
+      if (hit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _hasEnteredNoFlyZone() {
+    for (final zone in world.children.query<NoFlyZone>()) {
+      final hit = segmentIntersectsCircle(
+        start: rocket.previousPosition,
+        end: rocket.position,
+        center: zone.position,
+        radius: zone.radius,
       );
       if (hit) {
         return true;
@@ -243,3 +286,7 @@ class GravityRocketGame extends FlameGame {
 
   double _degToRad(double deg) => deg * math.pi / 180;
 }
+
+/// Maps shots-taken-to-win to a 1-3 star rating shown on the win
+/// overlay: 1 shot = 3 stars, 2-3 shots = 2 stars, 4+ shots = 1 star.
+int starsForShotCount(int shots) => shots <= 1 ? 3 : (shots <= 3 ? 2 : 1);

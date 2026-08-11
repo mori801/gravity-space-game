@@ -52,6 +52,9 @@ class _WinOverlayState extends State<WinOverlay>
   late final bool _hasNextLevel;
   late final bool _isLastLevel;
 
+  late final int _shotsTaken = widget.game.shotCount;
+  late final int _stars = starsForShotCount(_shotsTaken);
+
   /// True while the countdown is running. Flips to false the moment the
   /// player taps it to cancel, or once it fires and navigation begins —
   /// either way, the corner control then behaves as an ordinary static
@@ -217,6 +220,25 @@ class _WinOverlayState extends State<WinOverlay>
                         const Text(
                           'Level Complete!',
                           style: TextStyle(fontSize: 24),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(3, (i) {
+                            return Icon(
+                              i < _stars ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 28,
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$_shotsTaken shot${_shotsTaken == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
                         ),
                         if (_isLastLevel) ...[
                           const SizedBox(height: 6),

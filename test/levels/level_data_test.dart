@@ -56,5 +56,28 @@ void main() {
         );
       }
     });
+
+    test(
+      'no-fly zones have positive radius and never contain the rocket '
+      'start or target',
+      () {
+        for (final level in kLevels) {
+          for (final zone in level.noFlyZones) {
+            expect(zone.radius, greaterThan(0), reason: level.id);
+
+            final startDistance = (level.rocketStart - zone.position).length;
+            expect(startDistance, greaterThan(zone.radius), reason: level.id);
+
+            final targetDistance =
+                (level.targetPosition - zone.position).length;
+            expect(
+              targetDistance,
+              greaterThan(zone.radius),
+              reason: level.id,
+            );
+          }
+        }
+      },
+    );
   });
 }

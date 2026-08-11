@@ -18,6 +18,16 @@ class PlanetSpec {
   final Color color;
 }
 
+/// A static circular no-fly zone placed in a level: purely an exclusion
+/// zone (no gravity, no level-configurable visual — see [NoFlyZone]) that
+/// ends the run if the rocket's flight path crosses it.
+class NoFlyZoneSpec {
+  const NoFlyZoneSpec({required this.position, required this.radius});
+
+  final Vector2 position;
+  final double radius;
+}
+
 /// Declarative description of one level: where the rocket starts, the
 /// range of launch power/angle the player can choose from, the planets
 /// that will pull on it, the target it must reach, and the play area
@@ -35,6 +45,7 @@ class LevelData {
     required this.targetPosition,
     required this.targetRadius,
     required this.playBounds,
+    this.noFlyZones = const <NoFlyZoneSpec>[],
   });
 
   final String id;
@@ -60,4 +71,9 @@ class LevelData {
 
   /// Play area; the rocket leaving these bounds ends the run in a loss.
   final Rect playBounds;
+
+  /// Static circular exclusion zones; the rocket's flight path crossing
+  /// one ends the run in a loss. Optional — defaults to none, so existing
+  /// levels don't need to declare it.
+  final List<NoFlyZoneSpec> noFlyZones;
 }
