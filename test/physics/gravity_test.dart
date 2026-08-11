@@ -25,7 +25,12 @@ void main() {
         ],
       );
 
-      expect(acceleration.x, closeTo(0, 1e-6));
+      // Vector2 here (package:vector_math/vector_math.dart, not the _64
+      // variant) is Float32List-backed, so cancellation of two symmetric
+      // contributions leaves single-precision rounding noise on the
+      // order of 1e-6-1e-7 rather than an exact 0 — 1e-4 comfortably
+      // covers that noise without weakening what this test checks.
+      expect(acceleration.x, closeTo(0, 1e-4));
       expect(acceleration.y, greaterThan(0));
     });
 
