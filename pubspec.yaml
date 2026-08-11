@@ -1,0 +1,22 @@
+name: gravity_rocket_launcher
+description: "A gravity-assist puzzle game: launch a rocket and let planetary gravity steer it to the target."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.18.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flame_test: ^1.19.0
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,46 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Flutter/flutter_assets/
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json
+**/Flutter/ephemeral/
+**/Pods/
+
+# Android
+android/.gradle/
+android/local.properties
+android/**/gradle-wrapper.jar
+android/gradlew
+android/gradlew.bat
+android/key.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# macOS/Linux/Windows desktop (if ever added)
+**/ephemeral/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local agent tooling state (not project source)
+.claude/
+
+# Coverage
+coverage/
