@@ -293,32 +293,71 @@ class _HudOverlayState extends State<HudOverlay>
     );
   }
 
+  Widget _buildPauseButton(GravityRocketGame game) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: IconButton.filled(
+            icon: const Icon(Icons.pause),
+            onPressed: () {
+              game.pauseEngine();
+              game.overlays.add('PauseMenu');
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The corner button while the rocket is mid-flight: same footprint the
+  /// power button occupies pre-launch (same position/handedness/size), but
+  /// now a plain tap-to-reset action, so aborting a bad shot early doesn't
+  /// require waiting for it to resolve into a win/lose.
+  Widget _buildResetButton(GravityRocketGame game, double positionedOffset) {
+    return Positioned(
+      right: _leftHanded ? null : positionedOffset,
+      left: _leftHanded ? positionedOffset : null,
+      bottom: positionedOffset,
+      child: SafeArea(
+        child: Semantics(
+          label: 'Reset level',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              game.resetLevel();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(_powerButtonHitPadding),
+              child: Container(
+                width: _powerButtonVisualSize,
+                height: _powerButtonVisualSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.4),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.refresh, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
 
-    if (game.status != GameStatus.ready) {
-      return SafeArea(
-        child: Align(
-          alignment: Alignment.topRight,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: IconButton.filled(
-              icon: const Icon(Icons.pause),
-              onPressed: () {
-                game.pauseEngine();
-                game.overlays.add('PauseMenu');
-              },
-            ),
-          ),
-        ),
-      );
-    }
-
     // Platforms reserve a strip along the screen edges for system
     // back-swipe gestures; SafeArea alone doesn't account for it. Keep
-    // the power button clear of that strip so a thumb press near its
-    // outer rim can't be stolen by the OS instead of the game.
+    // the corner button clear of that strip so a thumb press near its
+    // outer rim can't be stolen by the OS instead of the game. Computed
+    // up front so both the pre-launch power button and the mid-flight
+    // reset button (which occupies the exact same spot) share it.
     final gestureInsets = MediaQuery.of(context).systemGestureInsets;
     final sideInset = _leftHanded ? gestureInsets.left : gestureInsets.right;
     final edgeMargin = math.max(_powerButtonEdgeMargin, sideInset + 8);
@@ -327,6 +366,21 @@ class _HudOverlayState extends State<HudOverlay>
     // from the corner, while the invisible tap area extends further out
     // and further in than what's drawn.
     final positionedOffset = edgeMargin - _powerButtonHitPadding;
+
+    if (game.status == GameStatus.launched) {
+      return Stack(
+        children: [
+          _buildPauseButton(game),
+          _buildResetButton(game, positionedOffset),
+        ],
+      );
+    }
+
+    if (game.status != GameStatus.ready) {
+      // Won/lost: the result overlay is the primary interaction now, so
+      // just the pause button remains, same as before.
+      return _buildPauseButton(game);
+    }
 
     return Stack(
       children: [

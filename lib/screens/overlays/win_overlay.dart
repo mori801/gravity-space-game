@@ -161,14 +161,14 @@ class _WinOverlayState extends State<WinOverlay>
   /// Whatever the big bottom-right control currently does when tapped —
   /// shared by the control itself, the tap-anywhere background gesture,
   /// and the swipe-up gesture, so the low-precision shortcuts always match
-  /// what the control visibly promises.
+  /// what the control visibly promises. A tap during the auto-advance
+  /// countdown always advances immediately (skips ahead) rather than just
+  /// cancelling the timer — cancelling-then-requiring-a-second-tap made
+  /// "go to the next level" a two-tap action, defeating the point of a
+  /// one-tap-fast flow.
   void _primaryAction() {
     if (_hasNextLevel) {
-      if (_autoAdvanceActive) {
-        _cancelAutoAdvance();
-      } else {
-        _goToNextLevel();
-      }
+      _goToNextLevel();
     } else if (_isLastLevel) {
       _goToLevelSelect();
     } else {
@@ -326,7 +326,7 @@ class _WinOverlayState extends State<WinOverlay>
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             ElevatedButton.icon(
-              onPressed: _cancelAutoAdvance,
+              onPressed: _goToNextLevel,
               icon: const Icon(Icons.arrow_forward, size: 28),
               label: Text(
                 'Next Level in $secondsLeft…',
@@ -353,7 +353,7 @@ class _WinOverlayState extends State<WinOverlay>
               ),
             ),
             const SizedBox(height: 4),
-            const Text('Tap to cancel', style: TextStyle(fontSize: 11)),
+            const Text('Tap to skip', style: TextStyle(fontSize: 11)),
           ],
         );
       },

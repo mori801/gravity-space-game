@@ -24,7 +24,6 @@ class Rocket extends PositionComponent {
           anchor: Anchor.center,
         );
 
-  static const int _maxTrailLength = 40;
   static const double _maxUpdateDt = 1 / 30;
 
   final Vector2 velocity;
@@ -215,9 +214,6 @@ class Rocket extends PositionComponent {
     }
 
     _trail.add(position.clone());
-    if (_trail.length > _maxTrailLength) {
-      _trail.removeAt(0);
-    }
   }
 
   @override
@@ -271,7 +267,15 @@ class Rocket extends PositionComponent {
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..color = Colors.white.withOpacity(0.3);
-    for (final tickAngle in [base - range, base, base + range]) {
+    // At range >= 180°, `base - range` and `base + range` land on the same
+    // point (directly opposite `base`), so a "boundary" tick there would
+    // be redundant and misleadingly suggest a hard edge that doesn't
+    // exist — the full ring already communicates "steer anywhere". Only
+    // draw the two boundary ticks for a genuinely bounded arc.
+    final tickAngles = range < math.pi
+        ? [base - range, base, base + range]
+        : [base];
+    for (final tickAngle in tickAngles) {
       final dir = Offset(math.cos(tickAngle), math.sin(tickAngle));
       canvas.drawLine(dir * (radius - 5), dir * (radius + 5), tickPaint);
     }
@@ -449,15 +453,30 @@ class Rocket extends PositionComponent {
     );
   }
 
+  /// Draws the complete flown path (uncapped — see [update]) rather than
+  /// only a recent window: a fixed-size window of the most recent
+  /// [_trailFadeWindow] points gets the original brighter "near the
+  /// rocket" emphasis for in-flight motion feedback, while every point
+  /// keeps a modest constant baseline opacity so the whole trajectory
+  /// stays clearly marked on screen long after a long flight ends —
+  /// fading by *fractional position in the (now unbounded) list* would
+  /// wash early points toward invisibility instead.
+  static const int _trailFadeWindow = 40;
+
   void _renderTrail(Canvas canvas) {
     for (var i = 0; i < _trail.length; i++) {
       final worldPoint = _trail[i];
       final localPoint = worldPoint - position;
-      final progress = (i + 1) / _trail.length;
-      _trailPaint.color = _trailPaint.color.withOpacity(progress * 0.35);
+      final distanceFromEnd = _trail.length - 1 - i;
+      final recency = (1 - distanceFromEnd / _trailFadeWindow).clamp(
+        0.0,
+        1.0,
+      );
+      final opacity = 0.18 + recency * 0.35;
+      _trailPaint.color = _trailPaint.color.withOpacity(opacity);
       canvas.drawCircle(
         Offset(localPoint.x, localPoint.y),
-        1.5 + progress * 1.5,
+        1.5 + recency * 1.5,
         _trailPaint,
       );
     }

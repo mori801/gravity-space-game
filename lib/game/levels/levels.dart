@@ -13,7 +13,7 @@ final LevelData _firstOrbit = LevelData(
   name: 'First Orbit',
   rocketStart: Vector2(400, 1130),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 30,
+  launchAngleRangeDeg: 180,
   minLaunchSpeed: 200,
   maxLaunchSpeed: 500,
   planets: [
@@ -34,7 +34,7 @@ final LevelData _slingshot = LevelData(
   name: 'Slingshot',
   rocketStart: Vector2(450, 1230),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 35,
+  launchAngleRangeDeg: 180,
   minLaunchSpeed: 220,
   maxLaunchSpeed: 520,
   planets: [
@@ -61,7 +61,7 @@ final LevelData _threadingTheNeedle = LevelData(
   name: 'Threading the Needle',
   rocketStart: Vector2(500, 1330),
   baseLaunchAngleDeg: _straightUpDeg,
-  launchAngleRangeDeg: 40,
+  launchAngleRangeDeg: 180,
   minLaunchSpeed: 250,
   maxLaunchSpeed: 550,
   planets: [
@@ -211,7 +211,10 @@ final List<LevelData> _generatedLevels = List.generate(20, (i) {
     name: _generatedLevelNames[i],
     width: width,
     height: height,
-    launchAngleRangeDeg: 30.0 + tier * 3 + indexInTier * 0.5,
+    // Full 180° steering on every level: angle range is no longer a
+    // difficulty knob (difficulty still comes from planet count, speed,
+    // bounds, and target size, all still tier/indexInTier-driven above).
+    launchAngleRangeDeg: 180.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
     targetRadius: 68.0 - tier * 8 - indexInTier * 2,
