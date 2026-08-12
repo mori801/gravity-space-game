@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../game/gravity_rocket_game.dart';
+import '../../game/levels/levels.dart';
 import '../../game/settings.dart';
 
 /// Pre-launch: drag anywhere on screen to aim (a fading arrow on the
@@ -352,6 +353,42 @@ class _HudOverlayState extends State<HudOverlay>
     );
   }
 
+  /// Small, persistent, non-interactive readout of which tier/level the
+  /// player is currently on, anchored top-left. Purely a readout (no
+  /// `GestureDetector`) so it never competes for touches with the
+  /// full-screen swipe-to-aim gesture area or the ready-branch handedness
+  /// toggle it sits below. Shown across every [GravityRocketGame.status]
+  /// branch of [build] so it stays visible for the whole play session, not
+  /// just pre-launch.
+  Widget _buildLevelLabel(GravityRocketGame game) {
+    final tierTitle = tierTitleForLevel(game.level.id);
+    final text =
+        tierTitle != null ? '$tierTitle · ${game.level.name}' : game.level.name;
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 48, left: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPauseButton(GravityRocketGame game) {
     return SafeArea(
       child: Align(
@@ -434,171 +471,177 @@ class _HudOverlayState extends State<HudOverlay>
     // and further in than what's drawn.
     final positionedOffset = edgeMargin - _powerButtonHitPadding;
 
+    final Widget statusContent;
     if (game.status == GameStatus.launched) {
-      return Stack(
+      statusContent = Stack(
         children: [
           _buildPauseButton(game),
           _buildResetButton(game, positionedOffset),
           _buildShotsReadout(game),
         ],
       );
-    }
-
-    if (game.status != GameStatus.ready) {
+    } else if (game.status != GameStatus.ready) {
       // Won/lost: the result overlay is the primary interaction now, so
       // just the pause button remains, same as before.
-      return _buildPauseButton(game);
-    }
-
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Semantics(
-            label: 'Swipe to aim the rocket',
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanDown: (_) => _dismissTutorial(),
-              onPanUpdate: (details) => _adjustAim(details.delta.dx),
-            ),
-          ),
-        ),
-        if (_tutorialMounted)
-          IgnorePointer(
-            child: AnimatedOpacity(
-              opacity: _tutorialVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOut,
-              onEnd: () {
-                if (!_tutorialVisible && _tutorialMounted) {
-                  setState(() => _tutorialMounted = false);
-                }
-              },
-              child: AnimatedBuilder(
-                animation: _tutorialLoopController,
-                builder: (context, _) => _buildTutorialGhost(),
-              ),
-            ),
-          ),
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: IconButton(
-                icon: const Icon(Icons.swap_horiz, size: 20),
-                color: Colors.white.withOpacity(0.5),
-                tooltip: 'Bedienung links/rechts tauschen',
-                onPressed: () {
-                  _dismissTutorial();
-                  setState(() => _leftHanded = !_leftHanded);
-                },
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          right: _leftHanded ? null : positionedOffset,
-          left: _leftHanded ? positionedOffset : null,
-          bottom: positionedOffset,
-          child: SafeArea(
+      statusContent = _buildPauseButton(game);
+    } else {
+      statusContent = Stack(
+        children: [
+          Positioned.fill(
             child: Semantics(
-              label: 'Hold to charge power, release to launch',
+              label: 'Swipe to aim the rocket',
               child: GestureDetector(
-                // Explicitly opaque so this exact padded square always
-                // wins the hit test outright and the full-screen
-                // swipe-to-aim detector underneath is never considered
-                // for a pointer that starts here — a press-and-hold on
-                // the button can't drift the aim angle from hand tremor,
-                // and a swipe merely passing over the button can't
-                // accidentally trigger it.
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (_) => _startCharging(),
-                onTapUp: (_) => _release(),
-                onTapCancel: _release,
-                child: Padding(
-                  padding: const EdgeInsets.all(_powerButtonHitPadding),
-                  child: AnimatedBuilder(
-                    animation:
-                        Listenable.merge([_powerController, _kickController]),
-                    builder: (context, child) {
-                      final power = _powerController.value;
-                      // Continuously feed the charge level to the rocket
-                      // so its aim arrow can grow/brighten/glow in
-                      // lockstep with this button. Safe without an
-                      // "isLoaded" guard: this only runs from inside the
-                      // button's own AnimatedBuilder, which can only be
-                      // rebuilding because the user already tapped the
-                      // rendered button — by then `game.onLoad()` (which
-                      // sets `rocket`) has necessarily already run, same
-                      // as the pre-existing `rocket.setAim(...)` call in
-                      // `_adjustAim` below.
-                      widget.game.rocket.setCharge(power);
-                      final ready = power >= 0.98;
-                      final chargeColor = _chargeColor(power);
-                      final iconColor =
-                          Color.lerp(Colors.white, chargeColor, power)!;
-                      // Continuous, subtle growth as charge builds, plus
-                      // a distinct little "pop" once fully charged, on
-                      // top of the release "kick" recoil.
-                      final growScale =
-                          1.0 + 0.06 * power + (ready ? 0.05 : 0.0);
+                behavior: HitTestBehavior.translucent,
+                onPanDown: (_) => _dismissTutorial(),
+                onPanUpdate: (details) => _adjustAim(details.delta.dx),
+              ),
+            ),
+          ),
+          if (_tutorialMounted)
+            IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _tutorialVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOut,
+                onEnd: () {
+                  if (!_tutorialVisible && _tutorialMounted) {
+                    setState(() => _tutorialMounted = false);
+                  }
+                },
+                child: AnimatedBuilder(
+                  animation: _tutorialLoopController,
+                  builder: (context, _) => _buildTutorialGhost(),
+                ),
+              ),
+            ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: IconButton(
+                  icon: const Icon(Icons.swap_horiz, size: 20),
+                  color: Colors.white.withOpacity(0.5),
+                  tooltip: 'Bedienung links/rechts tauschen',
+                  onPressed: () {
+                    _dismissTutorial();
+                    setState(() => _leftHanded = !_leftHanded);
+                  },
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: _leftHanded ? null : positionedOffset,
+            left: _leftHanded ? positionedOffset : null,
+            bottom: positionedOffset,
+            child: SafeArea(
+              child: Semantics(
+                label: 'Hold to charge power, release to launch',
+                child: GestureDetector(
+                  // Explicitly opaque so this exact padded square always
+                  // wins the hit test outright and the full-screen
+                  // swipe-to-aim detector underneath is never considered
+                  // for a pointer that starts here — a press-and-hold on
+                  // the button can't drift the aim angle from hand tremor,
+                  // and a swipe merely passing over the button can't
+                  // accidentally trigger it.
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (_) => _startCharging(),
+                  onTapUp: (_) => _release(),
+                  onTapCancel: _release,
+                  child: Padding(
+                    padding: const EdgeInsets.all(_powerButtonHitPadding),
+                    child: AnimatedBuilder(
+                      animation:
+                          Listenable.merge([_powerController, _kickController]),
+                      builder: (context, child) {
+                        final power = _powerController.value;
+                        // Continuously feed the charge level to the rocket
+                        // so its aim arrow can grow/brighten/glow in
+                        // lockstep with this button. Safe without an
+                        // "isLoaded" guard: this only runs from inside the
+                        // button's own AnimatedBuilder, which can only be
+                        // rebuilding because the user already tapped the
+                        // rendered button — by then `game.onLoad()` (which
+                        // sets `rocket`) has necessarily already run, same
+                        // as the pre-existing `rocket.setAim(...)` call in
+                        // `_adjustAim` below.
+                        widget.game.rocket.setCharge(power);
+                        final ready = power >= 0.98;
+                        final chargeColor = _chargeColor(power);
+                        final iconColor =
+                            Color.lerp(Colors.white, chargeColor, power)!;
+                        // Continuous, subtle growth as charge builds, plus
+                        // a distinct little "pop" once fully charged, on
+                        // top of the release "kick" recoil.
+                        final growScale =
+                            1.0 + 0.06 * power + (ready ? 0.05 : 0.0);
 
-                      return Transform.scale(
-                        scale: growScale * _kickScale.value,
-                        child: Container(
-                          width: _powerButtonVisualSize,
-                          height: _powerButtonVisualSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withOpacity(0.4),
-                            border: Border.all(
-                              color: power > 0 ? chargeColor : Colors.white,
-                              width: ready ? 3 : 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: chargeColor.withOpacity(
-                                  0.12 + power * 0.38,
-                                ),
-                                blurRadius: 12 + power * 16,
-                                spreadRadius: power * 2,
+                        return Transform.scale(
+                          scale: growScale * _kickScale.value,
+                          child: Container(
+                            width: _powerButtonVisualSize,
+                            height: _powerButtonVisualSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withOpacity(0.4),
+                              border: Border.all(
+                                color: power > 0 ? chargeColor : Colors.white,
+                                width: ready ? 3 : 2,
                               ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SizedBox(
-                                width: _powerButtonVisualSize,
-                                height: _powerButtonVisualSize,
-                                child: CircularProgressIndicator(
-                                  value: power,
-                                  strokeWidth: 4,
-                                  backgroundColor: Colors.white24,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    chargeColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: chargeColor.withOpacity(
+                                    0.12 + power * 0.38,
+                                  ),
+                                  blurRadius: 12 + power * 16,
+                                  spreadRadius: power * 2,
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: _powerButtonVisualSize,
+                                  height: _powerButtonVisualSize,
+                                  child: CircularProgressIndicator(
+                                    value: power,
+                                    strokeWidth: 4,
+                                    backgroundColor: Colors.white24,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      chargeColor,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Transform.scale(
-                                scale: 1.0 + power * 0.15,
-                                child: Icon(
-                                  Icons.rocket_launch,
-                                  color: iconColor,
+                                Transform.scale(
+                                  scale: 1.0 + power * 0.15,
+                                  child: Icon(
+                                    Icons.rocket_launch,
+                                    color: iconColor,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        _buildShotsReadout(game),
+          _buildShotsReadout(game),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        statusContent,
+        _buildLevelLabel(game),
       ],
     );
   }

@@ -1,11 +1,16 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'levels/level.dart';
 
-/// In-memory (NOT persisted across app relaunches — this project has no
-/// local Flutter/Dart SDK anywhere in this environment to validate a new
-/// pub dependency like shared_preferences, so persistence is
-/// deliberately out of scope this iteration) record of which levels have
-/// been won during the current app session, so [LevelSelectScreen] can
-/// gate levels behind clearing the one before them.
+/// Record of which levels have been won, so [LevelSelectScreen] can gate
+/// levels behind clearing the one before them. Persisted via
+/// [SharedPreferences] once [load] has been called — typically on
+/// [instance] from `main()` before `runApp`. A test-constructed
+/// `LevelProgress()` that never calls [load] (as every test in this
+/// suite does) stays purely in-memory, since [_save] is a no-op while
+/// `_prefs` is null.
 ///
 /// A process-wide static singleton, rather than threading a field
 /// through main.dart/app.dart: [GravityRocketGame] (which fires the win
@@ -25,9 +30,48 @@ class LevelProgress {
   final Set<String> _wonLevelIds = <String>{};
   final Map<String, int> _bestStars = <String, int>{};
 
+  SharedPreferences? _prefs;
+  static const _wonLevelIdsKey = 'levelProgress.wonLevelIds';
+  static const _bestStarsKey = 'levelProgress.bestStars';
+
+  /// Loads any previously-persisted progress from [prefs] into this
+  /// instance, and remembers [prefs] so every future markWon/recordStars/
+  /// resetProgress call saves back automatically. Call exactly once, on
+  /// `instance`, from `main()` before `runApp` — never call this on a
+  /// test-constructed `LevelProgress()`, since doing so would make that
+  /// test touch the real SharedPreferences platform channel. No test in
+  /// this suite calls `load`, so `_prefs` stays null for every
+  /// test-constructed instance and `_save()` is always a safe no-op —
+  /// this is what keeps `flutter test` from ever touching a real
+  /// SharedPreferences platform channel.
+  void load(SharedPreferences prefs) {
+    _prefs = prefs;
+    final storedIds = prefs.getStringList(_wonLevelIdsKey);
+    _wonLevelIds.clear();
+    if (storedIds != null) {
+      _wonLevelIds.addAll(storedIds);
+    }
+    _bestStars.clear();
+    final storedStars = prefs.getString(_bestStarsKey);
+    if (storedStars != null) {
+      final decoded = jsonDecode(storedStars) as Map<String, dynamic>;
+      decoded.forEach((id, stars) => _bestStars[id] = stars as int);
+    }
+  }
+
+  void _save() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    prefs.setStringList(_wonLevelIdsKey, _wonLevelIds.toList());
+    prefs.setString(_bestStarsKey, jsonEncode(_bestStars));
+  }
+
   /// Marks [levelId] as won. Idempotent — safe to call on every win,
   /// including retries/replays of an already-won level.
-  void markWon(String levelId) => _wonLevelIds.add(levelId);
+  void markWon(String levelId) {
+    _wonLevelIds.add(levelId);
+    _save();
+  }
 
   /// Whether [levelId] has been won at least once this app run.
   bool isWon(String levelId) => _wonLevelIds.contains(levelId);
@@ -42,6 +86,7 @@ class LevelProgress {
     final current = _bestStars[levelId] ?? 0;
     if (stars > current) {
       _bestStars[levelId] = stars;
+      _save();
     }
   }
 
@@ -61,6 +106,7 @@ class LevelProgress {
   void resetProgress() {
     _wonLevelIds.clear();
     _bestStars.clear();
+    _save();
   }
 
   /// Test-only name for [resetProgress]. [instance] is a process-wide

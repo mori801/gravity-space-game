@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/progress.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math.dart';
 
 LevelData _dummy(String id) => LevelData(
@@ -57,6 +58,22 @@ void main() {
       progress.resetProgress();
       expect(progress.isWon('a'), isFalse);
       expect(progress.bestStars('a'), 0);
+    });
+
+    test('load restores previously-persisted progress and future writes '
+        'save back', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final first = LevelProgress();
+      first.load(prefs);
+      first.markWon('a');
+      first.recordStars('a', 2);
+
+      final second = LevelProgress();
+      second.load(prefs);
+      expect(second.isWon('a'), isTrue);
+      expect(second.bestStars('a'), 2);
     });
   });
 

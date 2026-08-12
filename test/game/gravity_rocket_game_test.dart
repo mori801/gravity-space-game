@@ -12,14 +12,19 @@ import 'package:vector_math/vector_math.dart';
 /// Builds a [GravityRocketGame] for a bare `testWithGame` harness (no
 /// [GameWidget]/`overlayBuilderMap`, unlike the real app in
 /// `lib/screens/game_screen.dart`). `_win()`/`_lose()` call
-/// `overlays.add('WinOverlay'/'LoseOverlay')` unconditionally, and
-/// Flame's `OverlayManager.add` asserts that the name was registered via
-/// `addEntry` first — so any test that can reach a win/loss needs these
-/// registered with a trivial stub builder (their actual widgets are
-/// irrelevant here; nothing renders them in a plain `testWithGame`).
+/// `overlays.add('WinOverlay'/'GameCompleteOverlay'/'LoseOverlay')`
+/// unconditionally, and Flame's `OverlayManager.add` asserts that the name
+/// was registered via `addEntry` first — so any test that can reach a
+/// win/loss needs these registered with a trivial stub builder (their
+/// actual widgets are irrelevant here; nothing renders them in a plain
+/// `testWithGame`).
 GravityRocketGame _testGame(LevelData level) {
   final game = GravityRocketGame(level: level);
   game.overlays.addEntry('WinOverlay', (context, game) => const SizedBox());
+  game.overlays.addEntry(
+    'GameCompleteOverlay',
+    (context, game) => const SizedBox(),
+  );
   game.overlays.addEntry('LoseOverlay', (context, game) => const SizedBox());
   return game;
 }
@@ -279,6 +284,21 @@ void main() {
         expect(LevelProgress.instance.isWon(kLevels.first.id), isTrue);
         expect(LevelProgress.instance.isWon(kLevels[1].id), isFalse);
         expect(LevelProgress.instance.bestStars(kLevels.first.id), starsForShotCount(game.shotCount));
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'winning the last level shows GameCompleteOverlay, not WinOverlay',
+      () => _testGame(kLevels.last),
+      (game) async {
+        addTearDown(LevelProgress.instance.resetForTest);
+        await game.ready();
+        game.rocket.position.setFrom(game.target.position);
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.won);
+        expect(game.overlays.isActive('GameCompleteOverlay'), isTrue);
+        expect(game.overlays.isActive('WinOverlay'), isFalse);
       },
     );
 

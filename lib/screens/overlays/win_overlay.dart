@@ -4,6 +4,7 @@ import '../../game/gravity_rocket_game.dart';
 import '../../game/levels/levels.dart';
 import '../../game/settings.dart';
 import '../level_select_screen.dart';
+import 'animated_press_scale.dart';
 
 /// Shown when a level is won. Tuned to get the player back into the action
 /// as fast as possible:
@@ -240,16 +241,6 @@ class _WinOverlayState extends State<WinOverlay>
                             color: Colors.grey,
                           ),
                         ),
-                        if (_isLastLevel) ...[
-                          const SizedBox(height: 6),
-                          const Text(
-                            'All levels complete!',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 16),
                         // "Retry" only needs its own slot here when the
                         // corner control is doing something else
@@ -259,7 +250,7 @@ class _WinOverlayState extends State<WinOverlay>
                         // unrecognised level id), the corner control
                         // already is Retry.
                         if (_hasNextLevel || _isLastLevel)
-                          _AnimatedPressScale(
+                          AnimatedPressScale(
                             child: OutlinedButton(
                               onPressed: _retry,
                               child: const Text('Retry'),
@@ -267,7 +258,7 @@ class _WinOverlayState extends State<WinOverlay>
                           ),
                         if (_hasNextLevel || _isLastLevel)
                           const SizedBox(height: 8),
-                        _AnimatedPressScale(
+                        AnimatedPressScale(
                           child: TextButton(
                             onPressed: _goToMenu,
                             child: const Text('Menu'),
@@ -286,7 +277,7 @@ class _WinOverlayState extends State<WinOverlay>
             child: SafeArea(
               child: ScaleTransition(
                 scale: _pulseScale,
-                child: _AnimatedPressScale(
+                child: AnimatedPressScale(
                   child: _hasNextLevel && _autoAdvanceActive
                       ? _buildCountdownControl()
                       : _buildPrimaryButton(),
@@ -379,46 +370,6 @@ class _WinOverlayState extends State<WinOverlay>
           ],
         );
       },
-    );
-  }
-}
-
-/// Wraps [child] with a quick press-down/settle scale "kick" — the same
-/// 260ms `Curves.easeOutBack` pop used by the HUD's power button and the
-/// pause overlay, so every overlay in the app shares one tactile feel.
-/// Uses a [Listener] rather than a [GestureDetector] so it only observes
-/// raw pointer events and never competes with the wrapped
-/// button/GestureDetector's own tap handling for the gesture.
-class _AnimatedPressScale extends StatefulWidget {
-  const _AnimatedPressScale({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_AnimatedPressScale> createState() => _AnimatedPressScaleState();
-}
-
-class _AnimatedPressScaleState extends State<_AnimatedPressScale> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed != value) {
-      setState(() => _pressed = value);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.93 : 1.0,
-        duration: const Duration(milliseconds: 260),
-        curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
-        child: widget.child,
-      ),
     );
   }
 }

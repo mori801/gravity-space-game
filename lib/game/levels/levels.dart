@@ -301,6 +301,17 @@ const Map<int, int> _tier6MaxShotsByIdx = {
   7: 3, // level-36
 };
 
+/// Difficulty-curve smoothing (iteration 5): tier 6 intentionally resets
+/// planet count from tier 5's climb to 5 down to a lower count, so the
+/// new no-fly-zone hazard — not gravity complexity — drives this tier's
+/// difficulty. But launch speed and target size were resetting right
+/// alongside it too, producing an unintended extra difficulty dip at
+/// the exact tier boundary. These additive/subtractive boosts close
+/// most of that gap for the first two levels only, tapering to 0 by
+/// index 2 so the rest of the tier's ramp is unaffected.
+const Map<int, double> _tier6SpeedBoostByIdx = {0: 40, 1: 18};
+const Map<int, double> _tier6TargetRadiusCutByIdx = {0: 10, 1: 5};
+
 /// 8 additional levels (tier 6): introduces [NoFlyZoneSpec] hazards as a
 /// second obstacle type alongside planets. Deliberately keeps planet
 /// count low and nearly flat (2-3, vs. tier 5's climb to 5) so the
@@ -336,9 +347,9 @@ final List<LevelData> _tier6Levels = List.generate(8, (idx) {
     width: width,
     height: height,
     launchAngleRangeDeg: 90.0,
-    minSpeed: 230.0 + idx * 6,
-    maxSpeed: 530.0 + idx * 6,
-    targetRadius: 42.0 - idx * 1.5,
+    minSpeed: 230.0 + idx * 6 + (_tier6SpeedBoostByIdx[idx] ?? 0),
+    maxSpeed: 530.0 + idx * 6 + (_tier6SpeedBoostByIdx[idx] ?? 0),
+    targetRadius: 42.0 - idx * 1.5 - (_tier6TargetRadiusCutByIdx[idx] ?? 0),
     targetXFrac: idx.isEven ? 0.78 : 0.22,
     planetMasses: planetMasses,
     planetRadii: planetRadii,
@@ -365,6 +376,15 @@ const List<String> _tier7LevelNames = [
 const Map<int, int> _tier7MaxShotsByIdx = {
   0: 6, 1: 6, 2: 5, 3: 5, 4: 4, 5: 4, 6: 3, 7: 3,
 };
+
+/// Difficulty-curve smoothing (iteration 5): same rationale as
+/// _tier6SpeedBoostByIdx/_tier6TargetRadiusCutByIdx above, but tier 7's
+/// boundary dip is real yet smaller than tier 6's or tier 8's, so the
+/// magnitude here is smaller. Tapers to 0 by index 2; the tier's own
+/// maxShots ramp (_tier7MaxShotsByIdx below) already reads as an
+/// intentional, gentle easing-in and is left untouched.
+const Map<int, double> _tier7SpeedBoostByIdx = {0: 28, 1: 12};
+const Map<int, double> _tier7TargetRadiusCutByIdx = {0: 7, 1: 3};
 
 /// 8 additional levels (tier 7): combines all three obstacle types at
 /// once — multi-planet gravity wells, no-fly zone hazards, and a
@@ -400,9 +420,9 @@ final List<LevelData> _tier7Levels = List.generate(8, (idx) {
     width: width,
     height: height,
     launchAngleRangeDeg: 90.0,
-    minSpeed: 240.0 + idx * 6,
-    maxSpeed: 540.0 + idx * 6,
-    targetRadius: 40.0 - idx * 1.5,
+    minSpeed: 240.0 + idx * 6 + (_tier7SpeedBoostByIdx[idx] ?? 0),
+    maxSpeed: 540.0 + idx * 6 + (_tier7SpeedBoostByIdx[idx] ?? 0),
+    targetRadius: 40.0 - idx * 1.5 - (_tier7TargetRadiusCutByIdx[idx] ?? 0),
     targetXFrac: idx.isEven ? 0.8 : 0.2,
     planetMasses: planetMasses,
     planetRadii: planetRadii,
@@ -419,6 +439,17 @@ const List<String> _tier8LevelNames = [
   'Ion Storm',
   'Gale Force',
 ];
+
+/// Difficulty-curve smoothing (iteration 5): tier 8's boundary dip is the
+/// largest of the three, since it loses BOTH the no-fly-zone hazard and
+/// the fuel-budget cap at once, on top of the planet-count reset — so on
+/// top of the same speed/target treatment as tiers 6/7, the wind zone's
+/// own severity (radius and force) also gets a small first-levels-only
+/// boost. Tapers to 0 by index 2 exactly like the other tiers.
+const Map<int, double> _tier8SpeedBoostByIdx = {0: 20, 1: 8};
+const Map<int, double> _tier8TargetRadiusCutByIdx = {0: 12, 1: 5};
+const Map<int, double> _tier8WindRadiusBoostByIdx = {0: 20, 1: 8};
+const Map<int, double> _tier8WindForceBoostByIdx = {0: 30, 1: 12};
 
 /// 5 additional levels (tier 8): introduces [WindZoneSpec] — a constant
 /// directional push — as a new mechanic. Kept to a flat 2 planets and
@@ -459,9 +490,9 @@ final List<LevelData> _tier8Levels = List.generate(5, (idx) {
             usableHeight *
                 (windZoneCount == 1 ? 0.5 : 0.25 + 0.5 * z / (windZoneCount - 1)),
       ),
-      radius: 130.0 + idx * 10,
+      radius: 130.0 + idx * 10 + (_tier8WindRadiusBoostByIdx[idx] ?? 0),
       forceDirectionDeg: forceDirectionDeg,
-      forceMagnitude: 120.0 + idx * 15,
+      forceMagnitude: 120.0 + idx * 15 + (_tier8WindForceBoostByIdx[idx] ?? 0),
     ),
   );
 
@@ -471,9 +502,9 @@ final List<LevelData> _tier8Levels = List.generate(5, (idx) {
     width: width,
     height: height,
     launchAngleRangeDeg: 90.0,
-    minSpeed: 260.0 + idx * 6,
-    maxSpeed: 560.0 + idx * 6,
-    targetRadius: 46.0 - idx * 2,
+    minSpeed: 260.0 + idx * 6 + (_tier8SpeedBoostByIdx[idx] ?? 0),
+    maxSpeed: 560.0 + idx * 6 + (_tier8SpeedBoostByIdx[idx] ?? 0),
+    targetRadius: 46.0 - idx * 2 - (_tier8TargetRadiusCutByIdx[idx] ?? 0),
     targetXFrac: pushRight ? 0.78 : 0.22,
     planetMasses: planetMasses,
     planetRadii: planetRadii,
@@ -538,3 +569,17 @@ final List<LevelSection> kLevelSections = [
   LevelSection(title: 'Tier 7 · Fuel & Hazards', levels: _tier7Levels),
   LevelSection(title: 'Tier 8 · Wind Zones', levels: _tier8Levels),
 ];
+
+/// Finds which [kLevelSections] entry contains the level with [levelId],
+/// returning its [LevelSection.title], or null if none does (defensive
+/// — every real level belongs to exactly one section by construction,
+/// since kLevelSections is built from the same lists that assemble
+/// kLevels).
+String? tierTitleForLevel(String levelId) {
+  for (final section in kLevelSections) {
+    if (section.levels.any((level) => level.id == levelId)) {
+      return section.title;
+    }
+  }
+  return null;
+}

@@ -10,6 +10,7 @@ import 'components/rocket.dart';
 import 'components/target.dart';
 import 'components/wind_zone.dart';
 import 'levels/level.dart';
+import 'levels/levels.dart';
 import 'physics/collision.dart';
 import 'progress.dart';
 
@@ -141,6 +142,7 @@ class GravityRocketGame extends FlameGame {
     loseReason = null;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
+    overlays.remove('GameCompleteOverlay');
     resumeEngine();
   }
 
@@ -203,6 +205,7 @@ class GravityRocketGame extends FlameGame {
     loseReason = null;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
+    overlays.remove('GameCompleteOverlay');
     resumeEngine();
   }
 
@@ -301,7 +304,9 @@ class GravityRocketGame extends FlameGame {
     // UI becomes visible.
     rocket.triggerWinFlash();
     pauseEngine();
-    overlays.add('WinOverlay');
+    final isLastLevel =
+        kLevels.indexWhere((l) => l.id == level.id) == kLevels.length - 1;
+    overlays.add(isLastLevel ? 'GameCompleteOverlay' : 'WinOverlay');
   }
 
   void _lose(LoseReason reason) {

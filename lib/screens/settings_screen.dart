@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../game/levels/levels.dart';
 import '../game/progress.dart';
 import '../game/settings.dart';
 
@@ -42,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      LevelProgress.instance.resetProgress();
+      setState(() => LevelProgress.instance.resetProgress());
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Progress reset')),
       );
@@ -55,6 +56,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.flag_outlined),
+            title: Text(
+              '${LevelProgress.instance.wonLevelIds.length} / ${kLevels.length} levels completed',
+            ),
+            subtitle: Row(
+              children: [
+                const Icon(Icons.star, color: Colors.amber, size: 16),
+                const SizedBox(width: 4),
+                Text('${LevelProgress.instance.totalStars} / ${kLevels.length * 3} stars'),
+              ],
+            ),
+          ),
+          const Divider(),
           SwitchListTile(
             title: const Text('Haptics'),
             subtitle: const Text('Vibrate on taps and launches'),
