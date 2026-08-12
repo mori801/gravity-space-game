@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
+import '../../game/settings.dart';
 
 /// Pre-launch: drag anywhere on screen to aim (a fading arrow on the
 /// rocket briefly shows the resulting direction), then press and hold the
@@ -166,14 +166,14 @@ class _HudOverlayState extends State<HudOverlay>
 
   void _startCharging() {
     _dismissTutorial();
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     _powerController.forward(from: 0);
   }
 
   void _release() {
     final power = _powerController.value.clamp(_minLaunchPower, 1.0);
     _powerController.stop();
-    HapticFeedback.mediumImpact();
+    GameSettings.instance.mediumImpact();
     // `game.status` is a plain field, not a ValueNotifier/ChangeNotifier —
     // Flame's GameWidget only rebuilds overlay widgets when the active
     // overlay *set* changes (via overlays.add/remove) or when this
@@ -385,7 +385,7 @@ class _HudOverlayState extends State<HudOverlay>
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              HapticFeedback.selectionClick();
+              GameSettings.instance.selectionClick();
               // See the comment in _release(): game.status doesn't notify
               // Flutter on its own, and resetLevel() mid-flight doesn't
               // touch overlays.add/remove either (neither WinOverlay nor

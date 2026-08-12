@@ -42,7 +42,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
             index: index,
             level: level,
             unlocked: isLevelUnlocked(index, kLevels, progress),
-            won: progress.isWon(level.id),
+            stars: progress.bestStars(level.id),
             onTap: _openLevel,
           ),
         );
@@ -51,7 +51,24 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Select Level')),
+      appBar: AppBar(
+        title: const Text('Select Level'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 4),
+                  Text('${progress.totalStars}/${kLevels.length * 3}'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       body: ListView(children: items),
     );
   }
@@ -82,19 +99,20 @@ class _LevelTile extends StatelessWidget {
     required this.index,
     required this.level,
     required this.unlocked,
-    required this.won,
+    required this.stars,
     required this.onTap,
   });
 
   final int index;
   final LevelData level;
   final bool unlocked;
-  final bool won;
+  final int stars;
   final void Function(LevelData level) onTap;
 
   @override
   Widget build(BuildContext context) {
     final disabledColor = Theme.of(context).disabledColor;
+    final won = stars > 0;
     return ListTile(
       enabled: unlocked,
       leading: CircleAvatar(
@@ -112,8 +130,38 @@ class _LevelTile extends StatelessWidget {
       ),
       title: Text(level.name),
       subtitle: !unlocked ? const Text('Clear the previous level to unlock') : null,
-      trailing: unlocked ? const Icon(Icons.chevron_right) : null,
+      trailing: unlocked
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (won) _StarRow(stars: stars),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right),
+              ],
+            )
+          : null,
       onTap: unlocked ? () => onTap(level) : null,
+    );
+  }
+}
+
+class _StarRow extends StatelessWidget {
+  const _StarRow({required this.stars});
+
+  final int stars;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        3,
+        (i) => Icon(
+          i < stars ? Icons.star : Icons.star_border,
+          size: 14,
+          color: Colors.amber,
+        ),
+      ),
     );
   }
 }

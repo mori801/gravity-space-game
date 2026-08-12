@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
+import '../../game/settings.dart';
 
 /// Shown when a level is lost. Tuned to get the player back into the
 /// action as fast as possible:
@@ -108,12 +108,12 @@ class _LoseOverlayState extends State<LoseOverlay>
   }
 
   void _retry() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.resetLevel();
   }
 
   void _retrySameShot() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.retrySameShot();
   }
 
@@ -124,7 +124,7 @@ class _LoseOverlayState extends State<LoseOverlay>
   /// removes the win/lose overlays itself via its own `overlays.remove`
   /// calls, so no extra `setState` is needed here.
   void _restartLevel() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.loadLevel(widget.game.level);
   }
 
@@ -141,7 +141,7 @@ class _LoseOverlayState extends State<LoseOverlay>
   }
 
   void _goToMenu() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

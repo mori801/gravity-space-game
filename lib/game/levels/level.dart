@@ -28,6 +28,32 @@ class NoFlyZoneSpec {
   final double radius;
 }
 
+/// A circular zone that applies a constant directional push to the
+/// rocket while its position is inside it (e.g. solar wind, a thruster
+/// corridor) — purely additive to gravity, unlike [NoFlyZoneSpec] which
+/// ends the run. Exerts no force outside [radius] of [position].
+class WindZoneSpec {
+  const WindZoneSpec({
+    required this.position,
+    required this.radius,
+    required this.forceDirectionDeg,
+    required this.forceMagnitude,
+  });
+
+  final Vector2 position;
+  final double radius;
+
+  /// Direction the wind pushes, in the same screen-angle convention as
+  /// [LevelData.baseLaunchAngleDeg] (0 = right, -90 = up, degrees).
+  final double forceDirectionDeg;
+
+  /// Constant acceleration magnitude applied while inside [radius], same
+  /// arcade-scale units as [gravitationalAcceleration]'s return value
+  /// (see physics/gravity.dart) — there's no separate rocket "mass" to
+  /// divide a force by in this engine.
+  final double forceMagnitude;
+}
+
 /// Declarative description of one level: where the rocket starts, the
 /// range of launch power/angle the player can choose from, the planets
 /// that will pull on it, the target it must reach, and the play area
@@ -47,6 +73,7 @@ class LevelData {
     required this.playBounds,
     this.noFlyZones = const <NoFlyZoneSpec>[],
     this.maxShots,
+    this.windZones = const <WindZoneSpec>[],
   });
 
   final String id;
@@ -83,4 +110,9 @@ class LevelData {
   /// `null` (the default) means unlimited, so every existing level is
   /// unaffected.
   final int? maxShots;
+
+  /// Wind zones applying a constant push to the rocket while inside them.
+  /// Optional — defaults to none, so existing levels don't need to
+  /// declare it.
+  final List<WindZoneSpec> windZones;
 }

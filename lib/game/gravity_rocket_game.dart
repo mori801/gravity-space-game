@@ -8,6 +8,7 @@ import 'components/no_fly_zone.dart';
 import 'components/planet.dart';
 import 'components/rocket.dart';
 import 'components/target.dart';
+import 'components/wind_zone.dart';
 import 'levels/level.dart';
 import 'physics/collision.dart';
 import 'progress.dart';
@@ -91,6 +92,17 @@ class GravityRocketGame extends FlameGame {
       );
     }
 
+    for (final windZoneSpec in level.windZones) {
+      world.add(
+        WindZone(
+          position: windZoneSpec.position,
+          radius: windZoneSpec.radius,
+          forceDirectionRad: _degToRad(windZoneSpec.forceDirectionDeg),
+          forceMagnitude: windZoneSpec.forceMagnitude,
+        ),
+      );
+    }
+
     target = Target(
       position: level.targetPosition,
       radius: level.targetRadius,
@@ -115,6 +127,7 @@ class GravityRocketGame extends FlameGame {
   void loadLevel(LevelData newLevel) {
     world.removeAll(world.children.query<Planet>());
     world.removeAll(world.children.query<NoFlyZone>());
+    world.removeAll(world.children.query<WindZone>());
     world.remove(target);
     world.remove(rocket);
 
@@ -279,6 +292,7 @@ class GravityRocketGame extends FlameGame {
   void _win() {
     status = GameStatus.won;
     LevelProgress.instance.markWon(level.id);
+    LevelProgress.instance.recordStars(level.id, starsForShotCount(shotCount));
     // Fires the one-shot win flash before the engine pauses, so its start
     // timestamp is captured at the exact instant of victory and the paused
     // frame reads as an impact rather than a dead stop. pauseEngine() and

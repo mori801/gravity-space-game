@@ -4,7 +4,9 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../physics/gravity.dart';
+import '../physics/wind.dart';
 import 'planet.dart';
+import 'wind_zone.dart';
 
 /// The player-controlled rocket. Before launch it sits still at the level's
 /// start position; after [launch] it is driven purely by the combined
@@ -204,6 +206,19 @@ class Rocket extends PositionComponent {
     final acceleration = gravitationalAcceleration(
       objectPosition: position,
       sources: sources,
+    );
+
+    final windZones = parent?.children.query<WindZone>() ?? const <WindZone>[];
+    final windSources = [
+      for (final zone in windZones)
+        WindZoneSource(
+          position: zone.position,
+          radius: zone.radius,
+          acceleration: zone.acceleration,
+        ),
+    ];
+    acceleration.add(
+      totalWindAcceleration(objectPosition: position, sources: windSources),
     );
 
     velocity.addScaled(acceleration, clampedDt);

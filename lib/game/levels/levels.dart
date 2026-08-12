@@ -42,19 +42,19 @@ final LevelData _slingshot = LevelData(
   planets: [
     PlanetSpec(
       position: Vector2(300, 650),
-      mass: 3500,
+      mass: 2800,
       radius: 55,
       color: Color(0xFFFF9142),
     ),
     PlanetSpec(
       position: Vector2(650, 400),
-      mass: 2500,
+      mass: 2000,
       radius: 45,
       color: Color(0xFFB06CFF),
     ),
   ],
   targetPosition: Vector2(750, 120),
-  targetRadius: 60,
+  targetRadius: 68,
   playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
 );
 
@@ -75,7 +75,7 @@ final LevelData _threadingTheNeedle = LevelData(
     ),
     PlanetSpec(
       position: Vector2(700, 700),
-      mass: 2800,
+      mass: 2400,
       radius: 45,
       color: Color(0xFFFF6584),
     ),
@@ -87,7 +87,7 @@ final LevelData _threadingTheNeedle = LevelData(
     ),
   ],
   targetPosition: Vector2(850, 150),
-  targetRadius: 45,
+  targetRadius: 58,
   playBounds: const Rect.fromLTWH(0, 0, 1000, 1400),
 );
 
@@ -127,6 +127,7 @@ LevelData _generatedLevel({
   required List<Color> planetColors,
   List<double> noFlyZoneRadii = const <double>[],
   int? maxShots,
+  List<WindZoneSpec> windZones = const <WindZoneSpec>[],
 }) {
   final planetCount = planetMasses.length;
   final usableHeight = height - 550;
@@ -180,6 +181,7 @@ LevelData _generatedLevel({
     playBounds: Rect.fromLTWH(0, 0, width, height),
     noFlyZones: noFlyZones,
     maxShots: maxShots,
+    windZones: windZones,
   );
 }
 
@@ -220,7 +222,14 @@ const Map<int, int> _generatedMaxShotsByListIndex = {
   19: 4, // level-23 (tier 3, 4 planets)
   22: 5, // level-26 (tier 4, 5 planets)
   23: 4, // level-27 (tier 4, 5 planets)
-  24: 3, // level-28 (tier 4, 5 planets)
+  24: 4, // level-28 (tier 4, 5 planets)
+};
+
+/// Difficulty-curve pass (iteration 4): numeric override for an
+/// individual generated level flagged as a spike relative to its
+/// neighbors, keyed the same way as _generatedMaxShotsByListIndex.
+const Map<int, double> _generatedTargetRadiusOverrideByListIndex = {
+  24: 36.0, // level-28: 5-planet gauntlet + a tight shot budget was too punishing combined
 };
 
 /// 25 additional levels (on top of the 3 hand-tuned ones above), ramping
@@ -262,7 +271,7 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
     launchAngleRangeDeg: 90.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
-    targetRadius: 68.0 - tier * 8 - indexInTier * 2,
+    targetRadius: _generatedTargetRadiusOverrideByListIndex[i] ?? (68.0 - tier * 8 - indexInTier * 2),
     targetXFrac: indexInTier.isEven ? 0.75 : 0.25,
     planetMasses: planetMasses,
     planetRadii: planetRadii,
@@ -403,11 +412,82 @@ final List<LevelData> _tier7Levels = List.generate(8, (idx) {
   );
 });
 
+const List<String> _tier8LevelNames = [
+  'Solar Breeze',
+  'Crosswind Pass',
+  'Jet Stream',
+  'Ion Storm',
+  'Gale Force',
+];
+
+/// 5 additional levels (tier 8): introduces [WindZoneSpec] — a constant
+/// directional push — as a new mechanic. Kept to a flat 2 planets and
+/// 1-2 wind zones throughout (no further planet-count ramp) so the wind
+/// force, not more gravity, is this tier's sole new difficulty axis,
+/// mirroring how tier 6 kept planet count flat while ramping no-fly
+/// zones. Push direction alternates by level so wind sometimes assists
+/// toward the target and sometimes fights it.
+final List<LevelData> _tier8Levels = List.generate(5, (idx) {
+  const planetCount = 2;
+  final windZoneCount = 1 + idx ~/ 3; // 1,1,1,2,2
+
+  final width = 2100.0 + idx * 30;
+  final height = 2550.0 + idx * 30;
+  final usableHeight = height - 550; // mirrors _generatedLevel's own calc
+
+  final planetMasses = List<double>.generate(
+    planetCount,
+    (p) => 3600.0 + p * 400 + idx * 30,
+  );
+  final planetRadii = List<double>.generate(
+    planetCount,
+    (p) => 46.0 - p * 6 - idx * 1,
+  );
+  final planetColors = List<Color>.generate(
+    planetCount,
+    (p) => _planetPalette[(idx + p) % _planetPalette.length],
+  );
+
+  final pushRight = idx.isEven;
+  final forceDirectionDeg = pushRight ? 0.0 : 180.0;
+  final windZones = List<WindZoneSpec>.generate(
+    windZoneCount,
+    (z) => WindZoneSpec(
+      position: Vector2(
+        width / 2,
+        350 +
+            usableHeight *
+                (windZoneCount == 1 ? 0.5 : 0.25 + 0.5 * z / (windZoneCount - 1)),
+      ),
+      radius: 130.0 + idx * 10,
+      forceDirectionDeg: forceDirectionDeg,
+      forceMagnitude: 120.0 + idx * 15,
+    ),
+  );
+
+  return _generatedLevel(
+    id: 'level-${45 + idx}',
+    name: _tier8LevelNames[idx],
+    width: width,
+    height: height,
+    launchAngleRangeDeg: 90.0,
+    minSpeed: 260.0 + idx * 6,
+    maxSpeed: 560.0 + idx * 6,
+    targetRadius: 46.0 - idx * 2,
+    targetXFrac: pushRight ? 0.78 : 0.22,
+    planetMasses: planetMasses,
+    planetRadii: planetRadii,
+    planetColors: planetColors,
+    windZones: windZones,
+  );
+});
+
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
 /// 25 procedurally-generated levels of increasing difficulty (5 tiers of
 /// 1-5 planets), then 8 tier-6 levels adding no-fly zone hazards, then 8
 /// tier-7 levels combining planets + no-fly zones + a maxShots fuel
-/// budget (44 levels, 8 tiers total including the tutorial).
+/// budget, then 5 tier-8 levels adding wind zones (49 levels, 9 tiers
+/// total including the tutorial).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
@@ -415,6 +495,7 @@ final List<LevelData> kLevels = [
   ..._generatedLevels,
   ..._tier6Levels,
   ..._tier7Levels,
+  ..._tier8Levels,
 ];
 
 /// Describes one named, contiguous section of [kLevels] for level-select
@@ -455,4 +536,5 @@ final List<LevelSection> kLevelSections = [
   ),
   LevelSection(title: 'Tier 6 · No-Fly Zones', levels: _tier6Levels),
   LevelSection(title: 'Tier 7 · Fuel & Hazards', levels: _tier7Levels),
+  LevelSection(title: 'Tier 8 · Wind Zones', levels: _tier8Levels),
 ];

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
 import '../../game/levels/levels.dart';
+import '../../game/settings.dart';
 import '../level_select_screen.dart';
 
 /// Shown when a level is won. Tuned to get the player back into the action
@@ -137,12 +137,12 @@ class _WinOverlayState extends State<WinOverlay>
     if (!_hasNextLevel) {
       return;
     }
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.loadLevel(kLevels[_currentIndex + 1]);
   }
 
   void _goToLevelSelect() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
     Navigator.of(
       context,
@@ -151,13 +151,13 @@ class _WinOverlayState extends State<WinOverlay>
 
   void _retry() {
     _cancelAutoAdvance();
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.resetLevel();
   }
 
   void _goToMenu() {
     _cancelAutoAdvance();
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

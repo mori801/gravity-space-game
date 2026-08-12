@@ -99,8 +99,8 @@ void main() {
       }
     });
 
-    test('kLevels has 44 levels total', () {
-      expect(kLevels.length, 44);
+    test('kLevels has 49 levels total', () {
+      expect(kLevels.length, 49);
     });
 
     test('tier 7 levels combine no-fly zones with a maxShots budget', () {
@@ -125,5 +125,41 @@ void main() {
           kLevels.where((l) => l.maxShots != null).map((l) => l.id).toSet();
       expect(actualIds, expectedIds);
     });
+
+    test('tier 8 levels all have wind zones', () {
+      final tier8Ids = List.generate(5, (i) => 'level-${45 + i}');
+      for (final id in tier8Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.windZones, isNotEmpty, reason: id);
+      }
+    });
+
+    test(
+      'wind zones have positive radius/magnitude and stay clear of the '
+      'rocket start and target',
+      () {
+        for (final level in kLevels) {
+          for (final zone in level.windZones) {
+            expect(zone.radius, greaterThan(0), reason: level.id);
+            expect(zone.forceMagnitude, greaterThan(0), reason: level.id);
+
+            final startDistance =
+                (level.rocketStart - zone.position).length;
+            expect(startDistance, greaterThan(zone.radius), reason: level.id);
+
+            final targetDistance =
+                (level.targetPosition - zone.position).length;
+            expect(
+              targetDistance,
+              greaterThan(zone.radius),
+              reason: level.id,
+            );
+          }
+        }
+      },
+    );
   });
 }

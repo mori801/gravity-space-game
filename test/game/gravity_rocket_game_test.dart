@@ -278,6 +278,51 @@ void main() {
         expect(game.status, GameStatus.won);
         expect(LevelProgress.instance.isWon(kLevels.first.id), isTrue);
         expect(LevelProgress.instance.isWon(kLevels[1].id), isFalse);
+        expect(LevelProgress.instance.bestStars(kLevels.first.id), starsForShotCount(game.shotCount));
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'a wind zone measurably deflects the rocket compared to a straight shot',
+      () => _testGame(
+        LevelData(
+          id: 'test-wind-zone',
+          name: 'Test',
+          rocketStart: Vector2(500, 900),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 300,
+          maxLaunchSpeed: 300,
+          planets: const [],
+          targetPosition: Vector2(500, 100),
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+          windZones: [
+            // radius 500 (not 300) so the zone covers the rocket's entire
+            // simulated path here (start is 400 away from the zone
+            // center) — hand-verified via simulation that a 300-radius
+            // zone only catches the last ~10 of these 30 steps and
+            // produces a final x of ~506, which would NOT clear the
+            // greaterThan(510) bar below; 500 keeps wind active for all
+            // 30 steps, giving a comfortable, robust margin (~x=551.7).
+            WindZoneSpec(
+              position: Vector2(500, 500),
+              radius: 500,
+              forceDirectionDeg: 0,
+              forceMagnitude: 400,
+            ),
+          ],
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 1, angleOffset: 0);
+        for (var i = 0; i < 30; i++) {
+          game.update(1 / 60);
+        }
+        // A straight-up shot with no gravity/wind would stay at x == 500;
+        // the wind zone (pushing in +x) should have measurably deflected it.
+        expect(game.rocket.position.x, greaterThan(510));
       },
     );
 

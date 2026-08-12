@@ -30,6 +30,34 @@ void main() {
       expect(progress.isWon('b'), isFalse);
       expect(progress.wonLevelIds, {'a'});
     });
+
+    test('recordStars keeps the best value across repeated calls', () {
+      final progress = LevelProgress();
+      expect(progress.bestStars('a'), 0);
+      progress.recordStars('a', 2);
+      expect(progress.bestStars('a'), 2);
+      progress.recordStars('a', 3);
+      expect(progress.bestStars('a'), 3);
+      progress.recordStars('a', 1); // worse retry must not lower the best
+      expect(progress.bestStars('a'), 3);
+    });
+
+    test('totalStars sums best ratings across levels', () {
+      final progress = LevelProgress();
+      progress.recordStars('a', 3);
+      progress.recordStars('b', 1);
+      progress.recordStars('c', 2);
+      expect(progress.totalStars, 6);
+    });
+
+    test('resetProgress clears both won levels and star ratings', () {
+      final progress = LevelProgress();
+      progress.markWon('a');
+      progress.recordStars('a', 3);
+      progress.resetProgress();
+      expect(progress.isWon('a'), isFalse);
+      expect(progress.bestStars('a'), 0);
+    });
   });
 
   group('isLevelUnlocked', () {
