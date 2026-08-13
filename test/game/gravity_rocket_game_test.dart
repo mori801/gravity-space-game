@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame_test/flame_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gravity_rocket_launcher/game/components/planet.dart';
 import 'package:gravity_rocket_launcher/game/gravity_rocket_game.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
@@ -129,6 +131,46 @@ void main() {
           (game.rocket.position - Vector2(-300, 0)).length,
           lessThan(1.0),
         );
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'a moving planet advances position every frame instead of staying put',
+      () => GravityRocketGame(
+        level: LevelData(
+          id: 'test-moving-planet',
+          name: 'Test Moving Planet',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 0,
+          maxLaunchSpeed: 0,
+          planets: [
+            PlanetSpec(
+              position: Vector2(500, 0),
+              mass: 5000,
+              radius: 20,
+              color: const Color(0xFFFFFFFF),
+              motion: OrbitMotion(
+                center: Vector2(0, 500),
+                radius: 500,
+                angularSpeedRadPerSec: math.pi,
+              ),
+            ),
+          ],
+          targetPosition: Vector2(1000, 1000),
+          targetRadius: 10,
+          playBounds: const Rect.fromLTWH(-2000, -2000, 4000, 4000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 0, angleOffset: 0);
+
+        game.update(1 / 60);
+
+        final planet = game.world.children.query<Planet>().first;
+        expect(planet.position.x, isNot(closeTo(500, 1e-6)));
       },
     );
   });
