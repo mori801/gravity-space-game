@@ -27,6 +27,9 @@ class Planet extends CircleComponent {
         );
 
   final double mass;
+
+  /// If set, this planet moves every frame per `physics/motion.dart`
+  /// instead of staying at its spawn position. Null means static.
   final PlanetMotion? motion;
 
   final Vector2 _basePosition;
