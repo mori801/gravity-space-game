@@ -102,6 +102,7 @@ class GravityRocketGame extends FlameGame {
           radius: planetSpec.radius,
           mass: planetSpec.mass,
           color: planetSpec.color,
+          isRepulsor: planetSpec.mass < 0,
           motion: planetSpec.motion,
         ),
       );

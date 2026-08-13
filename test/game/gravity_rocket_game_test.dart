@@ -145,7 +145,8 @@ void main() {
         expect(game.shotCount, 1);
 
         game.resetLevel();
-        expect(game.shotCount, 1); // loss/mid-run retry: count keeps accumulating
+        expect(
+            game.shotCount, 1); // loss/mid-run retry: count keeps accumulating
 
         game.launch(power: 0.5, angleOffset: 0);
         expect(game.shotCount, 2);
@@ -183,13 +184,16 @@ void main() {
         game.launch(power: 1, angleOffset: 0);
         game.update(1 / 60);
         expect(game.status, GameStatus.lost);
-        expect(game.loseReason, LoseReason.noFlyZone); // real reason, not overridden
+        expect(game.loseReason,
+            LoseReason.noFlyZone); // real reason, not overridden
         expect(game.shotCount, 1);
 
         game.resetLevel();
         expect(game.status, GameStatus.ready);
 
-        game.launch(power: 1, angleOffset: 0); // refused: already used the 1 allowed shot
+        game.launch(
+            power: 1,
+            angleOffset: 0); // refused: already used the 1 allowed shot
         expect(game.status, GameStatus.lost);
         expect(game.loseReason, LoseReason.outOfFuel);
         expect(game.shotCount, 1); // must not tick past maxShots
@@ -208,7 +212,8 @@ void main() {
           minLaunchSpeed: 100,
           maxLaunchSpeed: 100,
           planets: const [],
-          targetPosition: Vector2(100, 100), // same as rocketStart so reaching it is instant
+          targetPosition: Vector2(
+              100, 100), // same as rocketStart so reaching it is instant
           targetRadius: 20,
           playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
           maxShots: 1,
@@ -393,7 +398,8 @@ void main() {
         expect(game.status, GameStatus.won);
         expect(LevelProgress.instance.isWon(kLevels.first.id), isTrue);
         expect(LevelProgress.instance.isWon(kLevels[1].id), isFalse);
-        expect(LevelProgress.instance.bestStars(kLevels.first.id), starsForShotCount(game.shotCount));
+        expect(LevelProgress.instance.bestStars(kLevels.first.id),
+            starsForShotCount(game.shotCount));
       },
     );
 
@@ -458,6 +464,65 @@ void main() {
         // A straight-up shot with no gravity/wind would stay at x == 500;
         // the wind zone (pushing in +x) should have measurably deflected it.
         expect(game.rocket.position.x, greaterThan(510));
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'a repulsor planet deflects the rocket away from it, not toward it',
+      () => _testGame(
+        LevelData(
+          id: 'test-repulsor',
+          name: 'Test Repulsor',
+          // Straight-up launch path is x == 500. The repulsor sits off to
+          // the +x side of that path and well clear of it (150px), so if
+          // it behaves as a repulsor the rocket gets pushed further into
+          // -x (away from the planet); if gravity math were accidentally
+          // still attractive for negative mass, the rocket would instead
+          // bend toward +x (toward the planet). Asymmetric placement
+          // makes "away" vs "toward" unambiguous from x-position alone.
+          // Mass/distance are tuned (checked by simulation) so the
+          // rocket's vertical progress is only slowed, never reversed,
+          // over the fixed step budget below.
+          rocketStart: Vector2(500, 900),
+          baseLaunchAngleDeg: -90,
+          launchAngleRangeDeg: 90,
+          minLaunchSpeed: 300,
+          maxLaunchSpeed: 300,
+          planets: [
+            PlanetSpec(
+              position: Vector2(650, 500),
+              mass: -1500,
+              radius: 20,
+              color: const Color(0xFFFF6584),
+            ),
+          ],
+          targetPosition: Vector2(500, 100),
+          targetRadius: 20,
+          playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 1, angleOffset: 0);
+
+        // Fixed step budget (matches the wind-zone test's approach above)
+        // covering the rocket flying from y=900 well past the repulsor's
+        // y=500 level (hand-verified via simulation: y drops below 500
+        // around frame ~95 and keeps falling well below it afterward).
+        for (var i = 0; i < 120; i++) {
+          game.update(1 / 60);
+        }
+
+        expect(
+          game.rocket.position.y,
+          lessThan(500),
+          reason: 'rocket should have flown past the repulsor by now',
+        );
+
+        // A straight-up shot with no gravity would stay at x == 500. The
+        // repulsor (at x == 650) should have pushed the rocket toward -x
+        // (away from itself), not toward +x (toward itself).
+        expect(game.rocket.position.x, lessThan(500));
       },
     );
 

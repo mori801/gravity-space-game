@@ -47,4 +47,20 @@ void main() {
       findsNWidgets(3),
     );
   });
+
+  testWidgets('Tier 10 · Repulsors section renders with its first level',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: LevelSelectScreen()));
+    await tester.pumpAndSettle();
+
+    final sectionHeader = find.text('Tier 10 · Repulsors');
+    await tester.scrollUntilVisible(
+      sectionHeader,
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(sectionHeader, findsOneWidget);
+    expect(find.text('Pushback'), findsOneWidget);
+  });
 }

@@ -271,7 +271,8 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
     launchAngleRangeDeg: 90.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
-    targetRadius: _generatedTargetRadiusOverrideByListIndex[i] ?? (68.0 - tier * 8 - indexInTier * 2),
+    targetRadius: _generatedTargetRadiusOverrideByListIndex[i] ??
+        (68.0 - tier * 8 - indexInTier * 2),
     targetXFrac: indexInTier.isEven ? 0.75 : 0.25,
     planetMasses: planetMasses,
     planetRadii: planetRadii,
@@ -374,7 +375,14 @@ const List<String> _tier7LevelNames = [
 /// (3) at the end, never below 3 so restarting with a fresh budget (see
 /// LoseOverlay._restartLevel) is never the *only* path to victory.
 const Map<int, int> _tier7MaxShotsByIdx = {
-  0: 6, 1: 6, 2: 5, 3: 5, 4: 4, 5: 4, 6: 3, 7: 3,
+  0: 6,
+  1: 6,
+  2: 5,
+  3: 5,
+  4: 4,
+  5: 4,
+  6: 3,
+  7: 3,
 };
 
 /// Difficulty-curve smoothing (iteration 5): same rationale as
@@ -488,7 +496,9 @@ final List<LevelData> _tier8Levels = List.generate(5, (idx) {
         width / 2,
         350 +
             usableHeight *
-                (windZoneCount == 1 ? 0.5 : 0.25 + 0.5 * z / (windZoneCount - 1)),
+                (windZoneCount == 1
+                    ? 0.5
+                    : 0.25 + 0.5 * z / (windZoneCount - 1)),
       ),
       radius: 130.0 + idx * 10 + (_tier8WindRadiusBoostByIdx[idx] ?? 0),
       forceDirectionDeg: forceDirectionDeg,
@@ -587,13 +597,130 @@ final LevelData _twinTargets = LevelData(
   playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
 );
 
+final LevelData _repulsorIntro = LevelData(
+  id: 'repulsor-intro',
+  name: 'Pushback',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 520,
+  planets: [
+    PlanetSpec(
+      position: Vector2(450, 700),
+      mass: -2600,
+      radius: 55,
+      color: const Color(0xFFFF6584),
+    ),
+  ],
+  targetPosition: Vector2(750, 150),
+  targetRadius: 65,
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _repulsorGauntlet = LevelData(
+  id: 'repulsor-gauntlet',
+  name: 'The Gauntlet',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 540,
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 850),
+      mass: 2800,
+      radius: 55,
+      color: const Color(0xFF4C8DFF),
+    ),
+    PlanetSpec(
+      position: Vector2(600, 450),
+      mass: -2200,
+      radius: 50,
+      color: const Color(0xFFFF6584),
+    ),
+  ],
+  targetPosition: Vector2(800, 150),
+  targetRadius: 65,
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1350),
+);
+
+final LevelData _repulsorSlalom = LevelData(
+  id: 'repulsor-slalom',
+  name: 'Slalom',
+  rocketStart: Vector2(500, 1330),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 240,
+  maxLaunchSpeed: 550,
+  planets: [
+    PlanetSpec(
+      position: Vector2(320, 850),
+      mass: -2000,
+      radius: 48,
+      color: const Color(0xFFFF6584),
+    ),
+    PlanetSpec(
+      position: Vector2(680, 850),
+      mass: -2000,
+      radius: 48,
+      color: const Color(0xFFFF6584),
+    ),
+    PlanetSpec(
+      position: Vector2(500, 500),
+      mass: 2600,
+      radius: 50,
+      color: const Color(0xFFB06CFF),
+    ),
+  ],
+  targetPosition: Vector2(500, 150),
+  targetRadius: 62,
+  playBounds: const Rect.fromLTWH(0, 0, 1000, 1450),
+);
+
+final LevelData _repulsorOrbitBreak = LevelData(
+  id: 'repulsor-orbit-break',
+  name: 'Orbit Break',
+  rocketStart: Vector2(475, 1380),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 540,
+  planets: [
+    PlanetSpec(
+      position: Vector2(475, 700),
+      mass: 3400,
+      radius: 60,
+      color: const Color(0xFF4C8DFF),
+    ),
+    PlanetSpec(
+      position: Vector2(675, 700),
+      mass: -1800,
+      radius: 42,
+      color: const Color(0xFFFF6584),
+      motion: OrbitMotion(
+        center: Vector2(475, 700),
+        radius: 200,
+        angularSpeedRadPerSec: 0.35,
+      ),
+    ),
+  ],
+  targetPosition: Vector2(800, 150),
+  targetRadius: 65,
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1450),
+);
+
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
 /// 25 procedurally-generated levels of increasing difficulty (5 tiers of
 /// 1-5 planets), then 8 tier-6 levels adding no-fly zone hazards, then 8
 /// tier-7 levels combining planets + no-fly zones + a maxShots fuel
 /// budget, then 5 tier-8 levels adding wind zones, then 3 hand-tuned
-/// showcase levels for moving planets, wormholes, and multi-target wins
-/// (52 levels, 10 tiers total including the tutorial).
+/// showcase levels for moving planets, wormholes, and multi-target wins,
+/// then 4 hand-tuned levels introducing repulsor planets (negative mass,
+/// same inverse-square gravity, but pushing the rocket away instead of
+/// pulling it in), ramping from an isolated repulsor up to a repulsor
+/// combined with the existing moving-planet mechanic (56 levels, 11
+/// tiers total including the tutorial).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
@@ -605,6 +732,10 @@ final List<LevelData> kLevels = [
   _orbitalDance,
   _wormholeShortcut,
   _twinTargets,
+  _repulsorIntro,
+  _repulsorGauntlet,
+  _repulsorSlalom,
+  _repulsorOrbitBreak,
 ];
 
 /// Describes one named, contiguous section of [kLevels] for level-select
@@ -649,6 +780,15 @@ final List<LevelSection> kLevelSections = [
   LevelSection(
     title: 'Tier 9 · Showcase',
     levels: [_orbitalDance, _wormholeShortcut, _twinTargets],
+  ),
+  LevelSection(
+    title: 'Tier 10 · Repulsors',
+    levels: [
+      _repulsorIntro,
+      _repulsorGauntlet,
+      _repulsorSlalom,
+      _repulsorOrbitBreak,
+    ],
   ),
 ];
 

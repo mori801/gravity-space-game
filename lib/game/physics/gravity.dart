@@ -14,11 +14,25 @@ class GravitySource {
   const GravitySource({required this.position, required this.mass});
 
   final Vector2 position;
+
+  /// The source's mass. Normally positive, producing the usual pull
+  /// *toward* [position].
+  ///
+  /// A **negative** mass is a supported "repulsor" mechanic: it flips the
+  /// sign of `magnitude` in [gravitationalAcceleration] below, which flips
+  /// the vector added via `addScaled`, turning the same inverse-square law
+  /// into a push *away from* [position]. No other code needs to change for
+  /// this to work correctly — do not assume this field is positive.
   final double mass;
 }
 
 /// Computes the net gravitational acceleration acting on an object at
 /// [objectPosition] from all [sources], using an inverse-square falloff.
+///
+/// Each source's contribution points from [objectPosition] toward
+/// [GravitySource.position] (attraction) unless that source's [mass] is
+/// negative, in which case the contribution points away instead
+/// (repulsion) — see the doc comment on [GravitySource.mass].
 ///
 /// This is pure math with no dependency on Flame or Flutter, so it can be
 /// unit-tested directly and reused by both the live game loop and any

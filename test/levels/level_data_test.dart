@@ -4,6 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
 
+const _tier10Ids = [
+  'repulsor-intro',
+  'repulsor-gauntlet',
+  'repulsor-slalom',
+  'repulsor-orbit-break',
+];
+
 void main() {
   group('kLevels', () {
     test('has unique ids', () {
@@ -11,10 +18,14 @@ void main() {
       expect(ids.length, kLevels.length);
     });
 
-    test('every planet has positive mass and radius', () {
+    test('every planet has nonzero mass and positive radius', () {
+      // Negative mass is a valid, intentional mechanic (repulsor planets,
+      // Tier 10) — only zero mass (no gravitational effect at all, almost
+      // certainly a data-entry mistake) is disallowed. Radius must always
+      // be positive regardless of mass sign.
       for (final level in kLevels) {
         for (final planet in level.planets) {
-          expect(planet.mass, greaterThan(0), reason: level.id);
+          expect(planet.mass, isNot(0), reason: level.id);
           expect(planet.radius, greaterThan(0), reason: level.id);
         }
       }
@@ -76,14 +87,16 @@ void main() {
       }
     });
 
-    test('targets getter combines the primary target with additionalTargets', () {
+    test('targets getter combines the primary target with additionalTargets',
+        () {
       for (final level in kLevels) {
         expect(
           level.targets.length,
           1 + level.additionalTargets.length,
           reason: level.id,
         );
-        expect(level.targets.first.position, level.targetPosition, reason: level.id);
+        expect(level.targets.first.position, level.targetPosition,
+            reason: level.id);
       }
     });
 
@@ -161,8 +174,8 @@ void main() {
       }
     });
 
-    test('kLevels has 52 levels total', () {
-      expect(kLevels.length, 52);
+    test('kLevels has 56 levels total', () {
+      expect(kLevels.length, 56);
     });
 
     test('tier 7 levels combine no-fly zones with a maxShots budget', () {
@@ -179,8 +192,15 @@ void main() {
 
     test('exactly the expected levels have a maxShots budget', () {
       final expectedIds = {
-        'level-22', 'level-23', 'level-26', 'level-27', 'level-28',
-        'level-33', 'level-34', 'level-35', 'level-36',
+        'level-22',
+        'level-23',
+        'level-26',
+        'level-27',
+        'level-28',
+        'level-33',
+        'level-34',
+        'level-35',
+        'level-36',
         for (var i = 0; i < 8; i++) 'level-${37 + i}',
       };
       final actualIds =
@@ -208,8 +228,7 @@ void main() {
             expect(zone.radius, greaterThan(0), reason: level.id);
             expect(zone.forceMagnitude, greaterThan(0), reason: level.id);
 
-            final startDistance =
-                (level.rocketStart - zone.position).length;
+            final startDistance = (level.rocketStart - zone.position).length;
             expect(startDistance, greaterThan(zone.radius), reason: level.id);
 
             final targetDistance =
@@ -223,5 +242,37 @@ void main() {
         }
       },
     );
+
+    test('tier 10 has exactly the 4 repulsor levels', () {
+      for (final id in _tier10Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.id, id);
+      }
+      final actualTier10Count =
+          kLevels.where((l) => _tier10Ids.contains(l.id)).length;
+      expect(actualTier10Count, 4);
+    });
+
+    test('kLevelSections attributes tier 10 levels to "Tier 10 · Repulsors"',
+        () {
+      for (final id in _tier10Ids) {
+        expect(tierTitleForLevel(id), 'Tier 10 · Repulsors', reason: id);
+      }
+    });
+
+    test('at least one tier 10 level has a negative-mass (repulsor) planet',
+        () {
+      final tier10Levels = kLevels.where((l) => _tier10Ids.contains(l.id));
+      expect(
+        tier10Levels.any((l) => l.planets.any((p) => p.mass < 0)),
+        isTrue,
+        reason: 'expected at least one Tier 10 level with a repulsor planet '
+            '(negative mass) — otherwise the tier is not actually '
+            'exercising the repulsor mechanic',
+      );
+    });
   });
 }
