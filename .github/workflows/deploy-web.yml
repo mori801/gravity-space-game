@@ -3,7 +3,7 @@ name: Deploy Web Build to GitHub Pages
 on:
   push:
     branches:
-      - claude/mobile-game-ios-android-ky9qrz
+      - main
   workflow_dispatch: {}
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
       # committed to the repo (same approach as ios/ and android/).
       - run: flutter create . --platforms=web
 
-      - run: flutter build web --release --base-href /Mobile-Handy-Game/
+      - run: flutter build web --release --base-href /gravity-space-game/
 
       - uses: actions/configure-pages@v5
 
