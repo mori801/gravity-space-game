@@ -61,6 +61,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                             builder: (_) => GameScreen(level: level),
                           ),
                         );
+                        if (!mounted) return;
                         _refreshProgress();
                       }
                     : null,
