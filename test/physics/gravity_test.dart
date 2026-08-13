@@ -25,7 +25,11 @@ void main() {
         ],
       );
 
-      expect(acceleration.x, closeTo(0, 1e-6));
+      // vector_math's Vector2 is backed by Float32List, so a near-zero
+      // cancellation carries float32 rounding error (~1.2e-6 here) well
+      // above a float64-scale 1e-6 tolerance; 1e-4 comfortably covers that
+      // while still catching a real (non-cancelling) miscalculation.
+      expect(acceleration.x, closeTo(0, 1e-4));
       expect(acceleration.y, greaterThan(0));
     });
 
