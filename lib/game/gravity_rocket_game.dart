@@ -30,6 +30,9 @@ class GravityRocketGame extends FlameGame {
   LoseReason? loseReason;
 
   late Rocket rocket;
+
+  /// All targets the rocket must reach to win this level (see
+  /// [LevelData.targets]). One [Target] component per entry.
   late List<Target> targets;
 
   /// The primary (first) target. Kept for the common single-target case
