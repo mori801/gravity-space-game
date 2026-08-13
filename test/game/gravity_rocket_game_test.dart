@@ -526,6 +526,155 @@ void main() {
       },
     );
 
+    testWithGame<GravityRocketGame>(
+      'ordered level: hitting target 2 before target 1 does not register it or win',
+      () => _testGame(
+        LevelData(
+          id: 'test-ordered-out-of-sequence',
+          name: 'Test Ordered Out Of Sequence',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          // Target 1 (primary) is further away; target 2 (additional) sits
+          // closer to the rocket's start so it's the one a short flight
+          // would plausibly reach first.
+          targetPosition: Vector2(400, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(100, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+          ordered: true,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        // Move the rocket onto target index 1's position (the
+        // "additionalTargets[0]" one) without ever having reached index 0.
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.launch(power: 0, angleOffset: 0);
+        for (var i = 0; i < 5; i++) {
+          game.update(1 / 60);
+        }
+
+        expect(game.status, isNot(GameStatus.won));
+        expect(game.nextRequiredTargetIndex, 0);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'ordered level: hitting targets in sequence wins',
+      () => _testGame(
+        LevelData(
+          id: 'test-ordered-sequence-win',
+          name: 'Test Ordered Sequence Win',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(100, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(-100, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+          ordered: true,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        game.launch(power: 0, angleOffset: 0);
+
+        // Reach target 0 first...
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.update(1 / 60);
+        expect(game.status, GameStatus.launched);
+        expect(game.nextRequiredTargetIndex, 1);
+
+        // ...then target 1, now in the correct order.
+        game.rocket.position.setFrom(Vector2(-100, 0));
+        game.update(1 / 60);
+
+        expect(game.status, GameStatus.won);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'unordered multi-target level still wins when targets are hit in any order (regression)',
+      () => _testGame(
+        LevelData(
+          id: 'test-unordered-regression',
+          name: 'Test Unordered Regression',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(200, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(-200, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+          // ordered defaults to false.
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        // Hit the *second* (additional) target first, then the primary
+        // target — reverse of declaration order.
+        game.rocket.position.setFrom(Vector2(-200, 0));
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.launched);
+
+        game.rocket.position.setFrom(Vector2(200, 0));
+        game.update(1 / 60);
+        expect(game.status, GameStatus.won);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'nextRequiredTargetIndex reflects progress on an ordered level',
+      () => _testGame(
+        LevelData(
+          id: 'test-next-required-target-index',
+          name: 'Test Next Required Target Index',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(100, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(-100, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+          ordered: true,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        expect(game.nextRequiredTargetIndex, 0);
+
+        game.launch(power: 0, angleOffset: 0);
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.update(1 / 60);
+
+        expect(game.nextRequiredTargetIndex, 1);
+      },
+    );
+
     test('starsForShotCount boundaries', () {
       expect(starsForShotCount(1), 3);
       expect(starsForShotCount(2), 2);

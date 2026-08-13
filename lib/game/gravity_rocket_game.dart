@@ -49,6 +49,21 @@ class GravityRocketGame extends FlameGame {
   /// and any code that only cares about one target.
   Target get target => targets.first;
 
+  /// The index into [targets] of the next target an ordered level requires
+  /// the rocket to reach — the lowest index not yet in [_hitTargetIndices].
+  /// Returns [targets.length] (never -1) once every target has been hit,
+  /// so callers can safely compare `index < nextRequiredTargetIndex` for
+  /// "already satisfied or currently required" without a separate bounds
+  /// check. Well-defined for every level, but only meaningful to *display*
+  /// on [LevelData.ordered] levels — callers must gate on `level.ordered`
+  /// themselves before showing this to the player.
+  int get nextRequiredTargetIndex {
+    for (var i = 0; i < targets.length; i++) {
+      if (!_hitTargetIndices.contains(i)) return i;
+    }
+    return targets.length;
+  }
+
   final Set<int> _hitTargetIndices = {};
 
   /// All linked wormhole pairs in [level] (see [LevelData.wormholes]).
@@ -133,6 +148,7 @@ class GravityRocketGame extends FlameGame {
       world.add(t);
     }
     _hitTargetIndices.clear();
+    _updateTargetActivity();
 
     _wormholePairs = [
       for (final spec in level.wormholes) WormholePair(spec),
@@ -242,6 +258,7 @@ class GravityRocketGame extends FlameGame {
     status = GameStatus.ready;
     loseReason = null;
     _hitTargetIndices.clear();
+    _updateTargetActivity();
     _wormholeCooldown = 0;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
@@ -276,6 +293,7 @@ class GravityRocketGame extends FlameGame {
       _win();
       return;
     }
+    _updateTargetActivity();
 
     if (_wormholeCooldown > 0) {
       _wormholeCooldown -= dt;
@@ -301,12 +319,34 @@ class GravityRocketGame extends FlameGame {
   bool _allTargetsHit() {
     for (var i = 0; i < targets.length; i++) {
       if (_hitTargetIndices.contains(i)) continue;
+      if (level.ordered && !_earlierTargetsHit(i)) continue;
       final distance = (rocket.position - targets[i].position).length;
       if (distance <= targets[i].radius) {
         _hitTargetIndices.add(i);
       }
     }
     return _hitTargetIndices.length == targets.length;
+  }
+
+  /// Whether every target with index < [i] has already been hit. Only
+  /// meaningful for [LevelData.ordered] levels; the unordered path never
+  /// calls this.
+  bool _earlierTargetsHit(int i) {
+    for (var j = 0; j < i; j++) {
+      if (!_hitTargetIndices.contains(j)) return false;
+    }
+    return true;
+  }
+
+  /// Dims not-yet-reachable targets on [LevelData.ordered] levels so their
+  /// required sequence reads visually; no-op on non-ordered levels (every
+  /// Target keeps its default isActive == true).
+  void _updateTargetActivity() {
+    if (!level.ordered) return;
+    final next = nextRequiredTargetIndex;
+    for (var i = 0; i < targets.length; i++) {
+      targets[i].isActive = i <= next;
+    }
   }
 
   /// Checks whether the rocket's most recent movement segment (see

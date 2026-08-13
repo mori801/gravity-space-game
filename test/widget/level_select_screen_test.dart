@@ -63,4 +63,20 @@ void main() {
     expect(sectionHeader, findsOneWidget);
     expect(find.text('Pushback'), findsOneWidget);
   });
+
+  testWidgets('Tier 11 · Sequence section renders with its first level',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: LevelSelectScreen()));
+    await tester.pumpAndSettle();
+
+    final sectionHeader = find.text('Tier 11 · Sequence');
+    await tester.scrollUntilVisible(
+      sectionHeader,
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(sectionHeader, findsOneWidget);
+    expect(find.text('First, Then'), findsOneWidget);
+  });
 }

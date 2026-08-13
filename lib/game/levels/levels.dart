@@ -710,6 +710,140 @@ final LevelData _repulsorOrbitBreak = LevelData(
   playBounds: const Rect.fromLTWH(0, 0, 950, 1450),
 );
 
+final LevelData _sequenceIntro = LevelData(
+  id: 'sequence-intro',
+  name: 'First, Then',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 520,
+  ordered: true,
+  planets: [
+    PlanetSpec(
+      position: Vector2(450, 700),
+      mass: 2800,
+      radius: 55,
+      color: const Color(0xFF4C8DFF),
+    ),
+  ],
+  targetPosition: Vector2(300, 950),
+  targetRadius: 58,
+  additionalTargets: [
+    TargetSpec(position: Vector2(750, 150), radius: 58),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _sequenceSlingshotRelay = LevelData(
+  id: 'sequence-slingshot-relay',
+  name: 'Relay',
+  rocketStart: Vector2(475, 1330),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 230,
+  maxLaunchSpeed: 540,
+  ordered: true,
+  planets: [
+    PlanetSpec(
+      position: Vector2(280, 800),
+      mass: 2600,
+      radius: 50,
+      color: const Color(0xFFFF9142),
+    ),
+    PlanetSpec(
+      position: Vector2(700, 800),
+      mass: 2400,
+      radius: 48,
+      color: const Color(0xFFB06CFF),
+    ),
+  ],
+  // Greedy "nearest first" would grab target 2 (near planet B, roughly
+  // level with target 1 across the play area) before target 1 (near
+  // planet A) since both sit at a similar distance from rocketStart —
+  // but the required order is: near A, then near B, then top-center.
+  targetPosition: Vector2(230, 650),
+  targetRadius: 56,
+  additionalTargets: [
+    TargetSpec(position: Vector2(750, 650), radius: 56),
+    TargetSpec(position: Vector2(490, 150), radius: 56),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 980, 1450),
+);
+
+final LevelData _sequenceOrbitalCheckpoints = LevelData(
+  id: 'sequence-orbital-checkpoints',
+  name: 'Checkpoints',
+  rocketStart: Vector2(475, 1380),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 240,
+  maxLaunchSpeed: 550,
+  ordered: true,
+  planets: [
+    PlanetSpec(
+      position: Vector2(475, 750),
+      mass: 3200,
+      radius: 58,
+      color: const Color(0xFF4CE0B3),
+    ),
+    PlanetSpec(
+      position: Vector2(675, 750),
+      mass: 2000,
+      radius: 40,
+      color: const Color(0xFFFFD24C),
+      motion: OrbitMotion(
+        center: Vector2(475, 750),
+        radius: 200,
+        angularSpeedRadPerSec: 0.42,
+      ),
+    ),
+  ],
+  targetPosition: Vector2(220, 1050),
+  targetRadius: 58,
+  additionalTargets: [
+    TargetSpec(position: Vector2(820, 600), radius: 58),
+    TargetSpec(position: Vector2(475, 150), radius: 58),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1450),
+);
+
+final LevelData _sequenceGauntletLoop = LevelData(
+  id: 'sequence-gauntlet-loop',
+  name: 'Full Circuit',
+  rocketStart: Vector2(475, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 230,
+  maxLaunchSpeed: 530,
+  ordered: true,
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 650),
+      mass: 2600,
+      radius: 50,
+      color: const Color(0xFF6CA0FF),
+    ),
+    PlanetSpec(
+      position: Vector2(650, 650),
+      mass: 2600,
+      radius: 50,
+      color: const Color(0xFFFF6584),
+    ),
+  ],
+  // Target 1 is a tight, low-energy loop right in front of the rocket;
+  // targets 2 and 3 are near-symmetric on opposite far sides, tempting a
+  // player to grab whichever is more convenient first — but the required
+  // order is center, then left, then right.
+  targetPosition: Vector2(475, 950),
+  targetRadius: 55,
+  additionalTargets: [
+    TargetSpec(position: Vector2(150, 200), radius: 55),
+    TargetSpec(position: Vector2(800, 200), radius: 55),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1300),
+);
+
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
 /// 25 procedurally-generated levels of increasing difficulty (5 tiers of
 /// 1-5 planets), then 8 tier-6 levels adding no-fly zone hazards, then 8
@@ -719,8 +853,13 @@ final LevelData _repulsorOrbitBreak = LevelData(
 /// then 4 hand-tuned levels introducing repulsor planets (negative mass,
 /// same inverse-square gravity, but pushing the rocket away instead of
 /// pulling it in), ramping from an isolated repulsor up to a repulsor
-/// combined with the existing moving-planet mechanic (56 levels, 11
-/// tiers total including the tutorial).
+/// combined with the existing moving-planet mechanic, then 4 hand-tuned
+/// levels introducing ordered targets (the rocket must hit `targets` in
+/// list order — primary target, then additionalTargets in sequence;
+/// hitting a later target early simply doesn't register yet), ramping
+/// from an isolated two-target intro up through a there-and-back relay,
+/// an orbiting-planet timing puzzle, and a symmetric-decoy gauntlet (60
+/// levels, 12 tiers total including the tutorial).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
@@ -736,6 +875,10 @@ final List<LevelData> kLevels = [
   _repulsorGauntlet,
   _repulsorSlalom,
   _repulsorOrbitBreak,
+  _sequenceIntro,
+  _sequenceSlingshotRelay,
+  _sequenceOrbitalCheckpoints,
+  _sequenceGauntletLoop,
 ];
 
 /// Describes one named, contiguous section of [kLevels] for level-select
@@ -788,6 +931,15 @@ final List<LevelSection> kLevelSections = [
       _repulsorGauntlet,
       _repulsorSlalom,
       _repulsorOrbitBreak,
+    ],
+  ),
+  LevelSection(
+    title: 'Tier 11 · Sequence',
+    levels: [
+      _sequenceIntro,
+      _sequenceSlingshotRelay,
+      _sequenceOrbitalCheckpoints,
+      _sequenceGauntletLoop,
     ],
   ),
 ];

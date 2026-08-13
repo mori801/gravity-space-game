@@ -137,6 +137,7 @@ class LevelData {
     this.noFlyZones = const <NoFlyZoneSpec>[],
     this.maxShots,
     this.windZones = const <WindZoneSpec>[],
+    this.ordered = false,
   });
 
   final String id;
@@ -172,8 +173,11 @@ class LevelData {
   /// doesn't use the mechanic.
   final List<WormholeSpec> wormholes;
 
-  /// Every target the rocket must reach to win, in no particular order:
-  /// the primary target followed by [additionalTargets].
+  /// Every target the rocket must reach to win: the primary target
+  /// followed by [additionalTargets]. When [ordered] is false (the
+  /// default), these may be hit in any order. When [ordered] is true,
+  /// this list's order IS the required visiting order — index 0 first,
+  /// then index 1, and so on.
   List<TargetSpec> get targets => [
         TargetSpec(position: targetPosition, radius: targetRadius),
         ...additionalTargets,
@@ -194,4 +198,17 @@ class LevelData {
   /// Optional — defaults to none, so existing levels don't need to
   /// declare it.
   final List<WindZoneSpec> windZones;
+
+  /// When true, [targets] must be hit in list order: the primary target
+  /// (targetPosition/targetRadius) first, then additionalTargets in the
+  /// order they're declared. Hitting a later target before all earlier
+  /// ones are hit simply doesn't register yet — no penalty, no loss, it
+  /// just isn't counted until its turn comes. Defaults to false, so every
+  /// existing level (where targets may be hit in any order) is completely
+  /// unaffected.
+  ///
+  /// IMPORTANT for level authors: the required sequence is exactly the
+  /// [targets] list order — index 0 is the primary target, index 1 is
+  /// additionalTargets[0], index 2 is additionalTargets[1], etc.
+  final bool ordered;
 }

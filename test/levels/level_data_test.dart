@@ -11,6 +11,13 @@ const _tier10Ids = [
   'repulsor-orbit-break',
 ];
 
+const _tier11Ids = [
+  'sequence-intro',
+  'sequence-slingshot-relay',
+  'sequence-orbital-checkpoints',
+  'sequence-gauntlet-loop',
+];
+
 void main() {
   group('kLevels', () {
     test('has unique ids', () {
@@ -174,8 +181,8 @@ void main() {
       }
     });
 
-    test('kLevels has 56 levels total', () {
-      expect(kLevels.length, 56);
+    test('kLevels has 60 levels total', () {
+      expect(kLevels.length, 60);
     });
 
     test('tier 7 levels combine no-fly zones with a maxShots budget', () {
@@ -273,6 +280,36 @@ void main() {
             '(negative mass) — otherwise the tier is not actually '
             'exercising the repulsor mechanic',
       );
+    });
+
+    test('tier 11 has exactly the 4 sequence levels', () {
+      for (final id in _tier11Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.id, id);
+      }
+      final actualTier11Count =
+          kLevels.where((l) => _tier11Ids.contains(l.id)).length;
+      expect(actualTier11Count, 4);
+    });
+
+    test('kLevelSections attributes tier 11 levels to "Tier 11 · Sequence"',
+        () {
+      for (final id in _tier11Ids) {
+        expect(tierTitleForLevel(id), 'Tier 11 · Sequence', reason: id);
+      }
+    });
+
+    test('ordered flag is set only on the tier 11 sequence levels', () {
+      for (final level in kLevels) {
+        if (_tier11Ids.contains(level.id)) {
+          expect(level.ordered, isTrue, reason: level.id);
+        } else {
+          expect(level.ordered, isFalse, reason: level.id);
+        }
+      }
     });
   });
 }

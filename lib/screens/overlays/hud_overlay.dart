@@ -446,6 +446,48 @@ class _HudOverlayState extends State<HudOverlay> with TickerProviderStateMixin {
     );
   }
 
+  /// Compact "Next: target N of M" pill, shown only on [LevelData.ordered]
+  /// levels, mirroring [_buildShotsReadout]'s style/positioning pattern.
+  /// Hides itself once every target is hit (next >= total) since the win
+  /// is then imminent and the readout would be a stale "N of N" moment
+  /// before the overlay changes anyway. Anchored top-center like
+  /// [_buildShotsReadout] but padded further down so the two can coexist
+  /// without visually overlapping on the rare level that sets both
+  /// `ordered` and `maxShots`.
+  Widget _buildNextTargetReadout(GravityRocketGame game) {
+    if (!game.level.ordered) {
+      return const SizedBox.shrink();
+    }
+    final next = game.nextRequiredTargetIndex;
+    final total = game.targets.length;
+    if (next >= total) {
+      return const SizedBox.shrink();
+    }
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 44),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Next: target ${next + 1} of $total',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Small, persistent, non-interactive readout of which tier/level the
   /// player is currently on, anchored top-left. Purely a readout (no
   /// `GestureDetector`) so it never competes for touches with the
@@ -571,6 +613,7 @@ class _HudOverlayState extends State<HudOverlay> with TickerProviderStateMixin {
           _buildPauseButton(game),
           _buildResetButton(game, positionedOffset),
           _buildShotsReadout(game),
+          _buildNextTargetReadout(game),
         ],
       );
     } else if (game.status != GameStatus.ready) {
@@ -727,6 +770,7 @@ class _HudOverlayState extends State<HudOverlay> with TickerProviderStateMixin {
             ),
           ),
           _buildShotsReadout(game),
+          _buildNextTargetReadout(game),
         ],
       );
     }
