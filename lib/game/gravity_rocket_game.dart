@@ -30,7 +30,13 @@ class GravityRocketGame extends FlameGame {
   LoseReason? loseReason;
 
   late Rocket rocket;
-  late Target target;
+  late List<Target> targets;
+
+  /// The primary (first) target. Kept for the common single-target case
+  /// and any code that only cares about one target.
+  Target get target => targets.first;
+
+  final Set<int> _hitTargetIndices = {};
 
   /// The `power`/`angleOffset` most recently passed to [launch], remembered
   /// so [retrySameShot] can repeat an attempt exactly without the player
@@ -78,11 +84,14 @@ class GravityRocketGame extends FlameGame {
       );
     }
 
-    target = Target(
-      position: level.targetPosition,
-      radius: level.targetRadius,
-    );
-    world.add(target);
+    targets = [
+      for (final targetSpec in level.targets)
+        Target(position: targetSpec.position, radius: targetSpec.radius),
+    ];
+    for (final t in targets) {
+      world.add(t);
+    }
+    _hitTargetIndices.clear();
 
     rocket = Rocket(
       position: level.rocketStart.clone(),
@@ -101,7 +110,7 @@ class GravityRocketGame extends FlameGame {
   /// mirroring the state reset in [resetLevel].
   void loadLevel(LevelData newLevel) {
     world.removeAll(world.children.query<Planet>());
-    world.remove(target);
+    world.removeAll(targets);
     world.remove(rocket);
 
     level = newLevel;
@@ -111,6 +120,7 @@ class GravityRocketGame extends FlameGame {
 
     status = GameStatus.ready;
     loseReason = null;
+    _hitTargetIndices.clear();
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
     resumeEngine();
@@ -152,6 +162,7 @@ class GravityRocketGame extends FlameGame {
     );
     status = GameStatus.ready;
     loseReason = null;
+    _hitTargetIndices.clear();
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
     resumeEngine();
@@ -180,7 +191,7 @@ class GravityRocketGame extends FlameGame {
       return;
     }
 
-    if (_hasReachedTarget()) {
+    if (_allTargetsHit()) {
       _win();
       return;
     }
@@ -195,9 +206,15 @@ class GravityRocketGame extends FlameGame {
     }
   }
 
-  bool _hasReachedTarget() {
-    final distance = (rocket.position - target.position).length;
-    return distance <= target.radius;
+  bool _allTargetsHit() {
+    for (var i = 0; i < targets.length; i++) {
+      if (_hitTargetIndices.contains(i)) continue;
+      final distance = (rocket.position - targets[i].position).length;
+      if (distance <= targets[i].radius) {
+        _hitTargetIndices.add(i);
+      }
+    }
+    return _hitTargetIndices.length == targets.length;
   }
 
   bool _hasCrashed() {

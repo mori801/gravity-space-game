@@ -1,8 +1,12 @@
+import 'dart:ui';
+
 import 'package:flame_test/flame_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/gravity_rocket_game.dart';
+import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
+import 'package:vector_math/vector_math.dart';
 
 /// flame's [OverlayManager] (as of flame 1.38) asserts an overlay name is a
 /// registered builder before `overlays.add(name)` is allowed to succeed.
@@ -55,6 +59,41 @@ void main() {
         game.launch(power: 0, angleOffset: 0);
         game.update(1 / 60);
 
+        expect(game.status, GameStatus.won);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'must hit all targets (any order) to win a multi-target level',
+      () => GravityRocketGame(
+        level: LevelData(
+          id: 'test-multi',
+          name: 'Test Multi',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(200, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(-200, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+        _registerStubOverlays(game);
+
+        game.rocket.position.setFrom(Vector2(200, 0));
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect(game.status, GameStatus.launched);
+
+        game.rocket.position.setFrom(Vector2(-200, 0));
+        game.update(1 / 60);
         expect(game.status, GameStatus.won);
       },
     );
