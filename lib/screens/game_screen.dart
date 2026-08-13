@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../game/gravity_rocket_game.dart';
 import '../game/levels/level.dart';
+import 'overlays/game_complete_overlay.dart';
 import 'overlays/hud_overlay.dart';
 import 'overlays/lose_overlay.dart';
 import 'overlays/pause_overlay.dart';
@@ -39,6 +40,8 @@ class _GameScreenState extends State<GameScreen> {
           'HUD': (context, game) => HudOverlay(game: game),
           'PauseMenu': (context, game) => PauseOverlay(game: game),
           'WinOverlay': (context, game) => WinOverlay(game: game),
+          'GameCompleteOverlay': (context, game) =>
+              GameCompleteOverlay(game: game),
           'LoseOverlay': (context, game) => LoseOverlay(game: game),
         },
       ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
 import '../../game/levels/levels.dart';
-import '../../game/progress/level_progress.dart';
+import '../../game/settings.dart';
 import '../level_select_screen.dart';
+import 'animated_press_scale.dart';
 
 /// Shown when a level is won. Tuned to get the player back into the action
 /// as fast as possible:
@@ -53,6 +53,9 @@ class _WinOverlayState extends State<WinOverlay>
   late final bool _hasNextLevel;
   late final bool _isLastLevel;
 
+  late final int _shotsTaken = widget.game.shotCount;
+  late final int _stars = starsForShotCount(_shotsTaken);
+
   /// True while the countdown is running. Flips to false the moment the
   /// player taps it to cancel, or once it fires and navigation begins —
   /// either way, the corner control then behaves as an ordinary static
@@ -66,10 +69,6 @@ class _WinOverlayState extends State<WinOverlay>
     _currentIndex = kLevels.indexWhere((l) => l.id == widget.game.level.id);
     _hasNextLevel = _currentIndex >= 0 && _currentIndex < kLevels.length - 1;
     _isLastLevel = _currentIndex == kLevels.length - 1;
-
-    LevelProgress.load().then((progress) {
-      progress.recordCompletion(widget.game.level.id, widget.game.attempts);
-    });
 
     _entranceController = AnimationController(
       duration: const Duration(milliseconds: 150),
@@ -139,12 +138,12 @@ class _WinOverlayState extends State<WinOverlay>
     if (!_hasNextLevel) {
       return;
     }
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.loadLevel(kLevels[_currentIndex + 1]);
   }
 
   void _goToLevelSelect() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
     Navigator.of(
       context,
@@ -153,27 +152,27 @@ class _WinOverlayState extends State<WinOverlay>
 
   void _retry() {
     _cancelAutoAdvance();
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.resetLevel();
   }
 
   void _goToMenu() {
     _cancelAutoAdvance();
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   /// Whatever the big bottom-right control currently does when tapped —
   /// shared by the control itself, the tap-anywhere background gesture,
   /// and the swipe-up gesture, so the low-precision shortcuts always match
-  /// what the control visibly promises.
+  /// what the control visibly promises. A tap during the auto-advance
+  /// countdown always advances immediately (skips ahead) rather than just
+  /// cancelling the timer — cancelling-then-requiring-a-second-tap made
+  /// "go to the next level" a two-tap action, defeating the point of a
+  /// one-tap-fast flow.
   void _primaryAction() {
     if (_hasNextLevel) {
-      if (_autoAdvanceActive) {
-        _cancelAutoAdvance();
-      } else {
-        _goToNextLevel();
-      }
+      _goToNextLevel();
     } else if (_isLastLevel) {
       _goToLevelSelect();
     } else {
@@ -223,16 +222,25 @@ class _WinOverlayState extends State<WinOverlay>
                           'Level Complete!',
                           style: TextStyle(fontSize: 24),
                         ),
-                        if (_isLastLevel) ...[
-                          const SizedBox(height: 6),
-                          const Text(
-                            'All levels complete!',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(3, (i) {
+                            return Icon(
+                              i < _stars ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 28,
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$_shotsTaken shot${_shotsTaken == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
                           ),
-                        ],
+                        ),
                         const SizedBox(height: 16),
                         // "Retry" only needs its own slot here when the
                         // corner control is doing something else
@@ -242,7 +250,7 @@ class _WinOverlayState extends State<WinOverlay>
                         // unrecognised level id), the corner control
                         // already is Retry.
                         if (_hasNextLevel || _isLastLevel)
-                          _AnimatedPressScale(
+                          AnimatedPressScale(
                             child: OutlinedButton(
                               onPressed: _retry,
                               child: const Text('Retry'),
@@ -250,7 +258,7 @@ class _WinOverlayState extends State<WinOverlay>
                           ),
                         if (_hasNextLevel || _isLastLevel)
                           const SizedBox(height: 8),
-                        _AnimatedPressScale(
+                        AnimatedPressScale(
                           child: TextButton(
                             onPressed: _goToMenu,
                             child: const Text('Menu'),
@@ -269,7 +277,7 @@ class _WinOverlayState extends State<WinOverlay>
             child: SafeArea(
               child: ScaleTransition(
                 scale: _pulseScale,
-                child: _AnimatedPressScale(
+                child: AnimatedPressScale(
                   child: _hasNextLevel && _autoAdvanceActive
                       ? _buildCountdownControl()
                       : _buildPrimaryButton(),
@@ -331,7 +339,7 @@ class _WinOverlayState extends State<WinOverlay>
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             ElevatedButton.icon(
-              onPressed: _cancelAutoAdvance,
+              onPressed: _goToNextLevel,
               icon: const Icon(Icons.arrow_forward, size: 28),
               label: Text(
                 'Next Level in $secondsLeft…',
@@ -358,50 +366,10 @@ class _WinOverlayState extends State<WinOverlay>
               ),
             ),
             const SizedBox(height: 4),
-            const Text('Tap to cancel', style: TextStyle(fontSize: 11)),
+            const Text('Tap to skip', style: TextStyle(fontSize: 11)),
           ],
         );
       },
-    );
-  }
-}
-
-/// Wraps [child] with a quick press-down/settle scale "kick" — the same
-/// 260ms `Curves.easeOutBack` pop used by the HUD's power button and the
-/// pause overlay, so every overlay in the app shares one tactile feel.
-/// Uses a [Listener] rather than a [GestureDetector] so it only observes
-/// raw pointer events and never competes with the wrapped
-/// button/GestureDetector's own tap handling for the gesture.
-class _AnimatedPressScale extends StatefulWidget {
-  const _AnimatedPressScale({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_AnimatedPressScale> createState() => _AnimatedPressScaleState();
-}
-
-class _AnimatedPressScaleState extends State<_AnimatedPressScale> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed != value) {
-      setState(() => _pressed = value);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.93 : 1.0,
-        duration: const Duration(milliseconds: 260),
-        curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
-        child: widget.child,
-      ),
     );
   }
 }

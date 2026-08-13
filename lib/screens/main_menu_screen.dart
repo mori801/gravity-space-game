@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'level_select_screen.dart';
+import 'settings_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});
@@ -30,6 +31,14 @@ class MainMenuScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const LevelSelectScreen()),
               ),
               child: const Text('Play'),
+            ),
+            const SizedBox(height: 32),
+            TextButton.icon(
+              icon: const Icon(Icons.settings),
+              label: const Text('Settings'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
             ),
           ],
         ),

@@ -4,16 +4,20 @@ import 'dart:ui';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 
+import 'components/no_fly_zone.dart';
 import 'components/planet.dart';
 import 'components/rocket.dart';
 import 'components/target.dart';
+import 'components/wind_zone.dart';
 import 'components/wormhole.dart';
 import 'levels/level.dart';
+import 'levels/levels.dart';
 import 'physics/collision.dart';
+import 'progress.dart';
 
 enum GameStatus { ready, launched, won, lost }
 
-enum LoseReason { crash, outOfBounds }
+enum LoseReason { crash, outOfBounds, noFlyZone, outOfFuel }
 
 /// Top-level Flame game for one level: builds the planets/target/rocket
 /// from a [LevelData], drives the launch, and arbitrates win/lose so those
@@ -30,11 +34,10 @@ class GravityRocketGame extends FlameGame {
   GameStatus status = GameStatus.ready;
   LoseReason? loseReason;
 
-  /// Number of real launches made during the current level session (across
-  /// retries), used to compute the star rating on win. Reset by
-  /// [loadLevel]; NOT reset by [resetLevel], so retries accumulate toward
-  /// a worse star rating exactly as intended.
-  int attempts = 0;
+  /// Number of real launches taken on the current run (since the level was
+  /// loaded, or since the last win). Drives [starsForShotCount] on the win
+  /// overlay.
+  int shotCount = 0;
 
   late Rocket rocket;
 
@@ -78,9 +81,9 @@ class GravityRocketGame extends FlameGame {
   }
 
   /// Builds the camera framing and all of [level]'s components (planets,
-  /// target, rocket) into [world]. Shared by [onLoad] (first level) and
-  /// [loadLevel] (swapping to a later level in-place) so the two never
-  /// drift apart.
+  /// no-fly zones, target, rocket) into [world]. Shared by [onLoad] (first
+  /// level) and [loadLevel] (swapping to a later level in-place) so the two
+  /// never drift apart.
   void _buildLevel() {
     camera.viewfinder.visibleGameSize = Vector2(
       level.playBounds.width,
@@ -100,6 +103,23 @@ class GravityRocketGame extends FlameGame {
           mass: planetSpec.mass,
           color: planetSpec.color,
           motion: planetSpec.motion,
+        ),
+      );
+    }
+
+    for (final zoneSpec in level.noFlyZones) {
+      world.add(
+        NoFlyZone(position: zoneSpec.position, radius: zoneSpec.radius),
+      );
+    }
+
+    for (final windZoneSpec in level.windZones) {
+      world.add(
+        WindZone(
+          position: windZoneSpec.position,
+          radius: windZoneSpec.radius,
+          forceDirectionRad: _degToRad(windZoneSpec.forceDirectionDeg),
+          forceMagnitude: windZoneSpec.forceMagnitude,
         ),
       );
     }
@@ -139,6 +159,8 @@ class GravityRocketGame extends FlameGame {
   /// mirroring the state reset in [resetLevel].
   void loadLevel(LevelData newLevel) {
     world.removeAll(world.children.query<Planet>());
+    world.removeAll(world.children.query<NoFlyZone>());
+    world.removeAll(world.children.query<WindZone>());
     world.removeAll(targets);
     world.remove(rocket);
     for (final pair in _wormholePairs) {
@@ -149,7 +171,7 @@ class GravityRocketGame extends FlameGame {
     level = newLevel;
     lastLaunchPower = null;
     lastLaunchAngleOffset = null;
-    attempts = 0;
+    shotCount = 0;
     _buildLevel();
 
     status = GameStatus.ready;
@@ -157,6 +179,7 @@ class GravityRocketGame extends FlameGame {
     _hitTargetIndices.clear();
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
+    overlays.remove('GameCompleteOverlay');
     resumeEngine();
   }
 
@@ -168,7 +191,19 @@ class GravityRocketGame extends FlameGame {
       return;
     }
 
-    attempts++;
+    final maxShots = level.maxShots;
+    if (maxShots != null && shotCount >= maxShots) {
+      // Every allowed shot has already been used on a previous attempt
+      // (e.g. the player hit Retry after a loss) — refuse to launch again
+      // rather than letting shotCount exceed the level's limit. The real
+      // failure reason for each actual flight is still reported normally
+      // by update(); outOfFuel specifically means "you tried to launch but
+      // have none left."
+      _lose(LoseReason.outOfFuel);
+      return;
+    }
+
+    shotCount++;
 
     lastLaunchPower = power;
     lastLaunchAngleOffset = angleOffset;
@@ -192,6 +227,13 @@ class GravityRocketGame extends FlameGame {
 
   /// Returns the rocket to its start position, ready to be launched again.
   void resetLevel() {
+    // A retry from an already-won state (e.g. WinOverlay's "Retry", to
+    // try for a better star rating) starts a fresh shot count; an
+    // ordinary mid-run loss-retry keeps accumulating so the count still
+    // reflects total attempts-to-win.
+    if (status == GameStatus.won) {
+      shotCount = 0;
+    }
     rocket.reset(
       startPosition: level.rocketStart.clone(),
       facingAngleRad: _degToRad(level.baseLaunchAngleDeg),
@@ -202,6 +244,7 @@ class GravityRocketGame extends FlameGame {
     _wormholeCooldown = 0;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
+    overlays.remove('GameCompleteOverlay');
     resumeEngine();
   }
 
@@ -241,6 +284,11 @@ class GravityRocketGame extends FlameGame {
 
     if (_hasCrashed()) {
       _lose(LoseReason.crash);
+      return;
+    }
+
+    if (_hasEnteredNoFlyZone()) {
+      _lose(LoseReason.noFlyZone);
       return;
     }
 
@@ -305,6 +353,21 @@ class GravityRocketGame extends FlameGame {
     return false;
   }
 
+  bool _hasEnteredNoFlyZone() {
+    for (final zone in world.children.query<NoFlyZone>()) {
+      final hit = segmentIntersectsCircle(
+        start: rocket.previousPosition,
+        end: rocket.position,
+        center: zone.position,
+        radius: zone.radius,
+      );
+      if (hit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool _isOutOfBounds() {
     final bounds = level.playBounds.inflate(_outOfBoundsMargin);
     return !bounds.contains(Offset(rocket.position.x, rocket.position.y));
@@ -312,6 +375,8 @@ class GravityRocketGame extends FlameGame {
 
   void _win() {
     status = GameStatus.won;
+    LevelProgress.instance.markWon(level.id);
+    LevelProgress.instance.recordStars(level.id, starsForShotCount(shotCount));
     // Fires the one-shot win flash before the engine pauses, so its start
     // timestamp is captured at the exact instant of victory and the paused
     // frame reads as an impact rather than a dead stop. pauseEngine() and
@@ -320,7 +385,9 @@ class GravityRocketGame extends FlameGame {
     // UI becomes visible.
     rocket.triggerWinFlash();
     pauseEngine();
-    overlays.add('WinOverlay');
+    final isLastLevel =
+        kLevels.indexWhere((l) => l.id == level.id) == kLevels.length - 1;
+    overlays.add(isLastLevel ? 'GameCompleteOverlay' : 'WinOverlay');
   }
 
   void _lose(LoseReason reason) {
@@ -333,3 +400,7 @@ class GravityRocketGame extends FlameGame {
 
   double _degToRad(double deg) => deg * math.pi / 180;
 }
+
+/// Maps shots-taken-to-win to a 1-3 star rating shown on the win
+/// overlay: 1 shot = 3 stars, 2-3 shots = 2 stars, 4+ shots = 1 star.
+int starsForShotCount(int shots) => shots <= 1 ? 3 : (shots <= 3 ? 2 : 1);

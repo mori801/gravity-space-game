@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
+import '../../game/settings.dart';
 
 /// Shown when a level is lost. Tuned to get the player back into the
 /// action as fast as possible:
@@ -17,6 +17,14 @@ import '../../game/gravity_rocket_game.dart';
 ///   re-aiming.
 /// - Tapping anywhere on the background, or swiping up, also retries;
 ///   swiping down goes to the menu.
+///
+/// When another attempt isn't actually possible — either the loss already
+/// is [LoseReason.outOfFuel], or the shot that just failed for some other
+/// reason was itself the level's last allowed one — retrying the same
+/// shot can't help — the launch itself is refused before the rocket ever
+/// flies — so the primary action instead restarts the whole level
+/// (resetting the shot count) and the "Same Shot" button is hidden
+/// entirely. See [_outOfAttempts].
 class LoseOverlay extends StatefulWidget {
   const LoseOverlay({super.key, required this.game});
 
@@ -38,6 +46,26 @@ class _LoseOverlayState extends State<LoseOverlay>
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseScale;
+
+  /// Whether the level was lost because its shot budget ran out. Retrying
+  /// the same shot (or just "retry") can't help in this case — the level
+  /// itself needs to restart with a fresh shot count.
+  bool get _isOutOfFuel => widget.game.loseReason == LoseReason.outOfFuel;
+
+  /// Whether repeating the failed attempt is even possible: false either
+  /// because this loss already *is* [LoseReason.outOfFuel], or because the
+  /// shot that just failed for some other reason (crash/bounds/no-fly
+  /// zone) was itself the level's last allowed one. In the latter case
+  /// "Same Shot" would still be shown by [_isOutOfFuel] alone even though
+  /// tapping it can't actually relaunch anything — retrySameShot() would
+  /// immediately hit the same maxShots guard in
+  /// [GravityRocketGame.launch] and silently flip to an out-of-fuel loss
+  /// with no rocket ever flying.
+  bool get _outOfAttempts {
+    final maxShots = widget.game.level.maxShots;
+    return _isOutOfFuel ||
+        (maxShots != null && widget.game.shotCount >= maxShots);
+  }
 
   @override
   void initState() {
@@ -80,17 +108,40 @@ class _LoseOverlayState extends State<LoseOverlay>
   }
 
   void _retry() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.resetLevel();
   }
 
   void _retrySameShot() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     widget.game.retrySameShot();
   }
 
+  /// Restarts the current level from scratch (fresh shot count), for the
+  /// out-of-fuel loss case where a plain retry of the failed shot can't
+  /// help. `loadLevel` tears down and rebuilds the current level in
+  /// place, resets `shotCount` to 0, sets `status = GameStatus.ready`, and
+  /// removes the win/lose overlays itself via its own `overlays.remove`
+  /// calls, so no extra `setState` is needed here.
+  void _restartLevel() {
+    GameSettings.instance.selectionClick();
+    widget.game.loadLevel(widget.game.level);
+  }
+
+  /// Dispatches the overlay's primary action (tap-anywhere, swipe-up, and
+  /// the bottom-right button all funnel through here): a normal retry of
+  /// the failed shot, unless another attempt isn't actually possible
+  /// (shots exhausted), in which case the whole level restarts instead.
+  void _primaryAction() {
+    if (_outOfAttempts) {
+      _restartLevel();
+    } else {
+      _retry();
+    }
+  }
+
   void _goToMenu() {
-    HapticFeedback.selectionClick();
+    GameSettings.instance.selectionClick();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -99,22 +150,26 @@ class _LoseOverlayState extends State<LoseOverlay>
     final reasonIcon = switch (widget.game.loseReason) {
       LoseReason.crash => Icons.warning_amber_rounded,
       LoseReason.outOfBounds => Icons.open_in_full,
+      LoseReason.noFlyZone => Icons.block,
+      LoseReason.outOfFuel => Icons.local_gas_station,
       null => Icons.error_outline,
     };
     final reasonLabel = switch (widget.game.loseReason) {
       LoseReason.crash => 'Crashed',
       LoseReason.outOfBounds => 'Off course',
+      LoseReason.noFlyZone => 'No-fly zone',
+      LoseReason.outOfFuel => 'Out of fuel',
       null => 'Failed',
     };
     final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _retry,
+      onTap: _primaryAction,
       onVerticalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity <= -_swipeVelocityThreshold) {
-          _retry();
+          _primaryAction();
         } else if (velocity >= _swipeVelocityThreshold) {
           _goToMenu();
         }
@@ -153,14 +208,16 @@ class _LoseOverlayState extends State<LoseOverlay>
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _AnimatedPressScale(
-                          child: OutlinedButton.icon(
-                            onPressed: _retrySameShot,
-                            icon: const Icon(Icons.replay, size: 18),
-                            label: const Text('Same Shot'),
+                        if (!_outOfAttempts) ...[
+                          _AnimatedPressScale(
+                            child: OutlinedButton.icon(
+                              onPressed: _retrySameShot,
+                              icon: const Icon(Icons.replay, size: 18),
+                              label: const Text('Same Shot'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 8),
+                        ],
                         _AnimatedPressScale(
                           child: TextButton(
                             onPressed: _goToMenu,
@@ -188,11 +245,14 @@ class _LoseOverlayState extends State<LoseOverlay>
                 scale: _pulseScale,
                 child: _AnimatedPressScale(
                   child: ElevatedButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.replay, size: 28),
-                    label: const Text(
-                      'Retry',
-                      style: TextStyle(
+                    onPressed: _primaryAction,
+                    icon: Icon(
+                      _outOfAttempts ? Icons.refresh : Icons.replay,
+                      size: 28,
+                    ),
+                    label: Text(
+                      _outOfAttempts ? 'Restart Level' : 'Retry',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),

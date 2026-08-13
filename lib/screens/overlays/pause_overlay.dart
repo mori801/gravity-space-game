@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
+import '../../game/settings.dart';
 
 class PauseOverlay extends StatelessWidget {
   const PauseOverlay({super.key, required this.game});
@@ -38,7 +38,7 @@ class PauseOverlay extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.play_arrow, size: 28),
                     onPressed: () {
-                      HapticFeedback.selectionClick();
+                      GameSettings.instance.selectionClick();
                       game.overlays.remove('PauseMenu');
                       game.resumeEngine();
                     },
@@ -50,7 +50,7 @@ class PauseOverlay extends StatelessWidget {
               _AnimatedPressScale(
                 child: OutlinedButton(
                   onPressed: () {
-                    HapticFeedback.selectionClick();
+                    GameSettings.instance.selectionClick();
                     game.overlays.remove('PauseMenu');
                     game.resetLevel();
                   },
@@ -61,7 +61,7 @@ class PauseOverlay extends StatelessWidget {
               _AnimatedPressScale(
                 child: TextButton(
                   onPressed: () {
-                    HapticFeedback.selectionClick();
+                    GameSettings.instance.selectionClick();
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   child: const Text('Menu'),
