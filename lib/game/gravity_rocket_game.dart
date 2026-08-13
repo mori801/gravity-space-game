@@ -7,6 +7,7 @@ import 'package:flame/components.dart';
 import 'components/planet.dart';
 import 'components/rocket.dart';
 import 'components/target.dart';
+import 'components/wormhole.dart';
 import 'levels/level.dart';
 import 'physics/collision.dart';
 
@@ -40,6 +41,15 @@ class GravityRocketGame extends FlameGame {
   Target get target => targets.first;
 
   final Set<int> _hitTargetIndices = {};
+
+  /// All linked wormhole pairs in [level] (see [LevelData.wormholes]).
+  late List<WormholePair> _wormholePairs;
+
+  /// Counts down after a teleport so the rocket can't immediately re-enter
+  /// the exit end (which would otherwise bounce it straight back through
+  /// on the very next frame) before it has flown clear.
+  double _wormholeCooldown = 0;
+  static const double _wormholeCooldownSeconds = 0.3;
 
   /// The `power`/`angleOffset` most recently passed to [launch], remembered
   /// so [retrySameShot] can repeat an attempt exactly without the player
@@ -96,6 +106,15 @@ class GravityRocketGame extends FlameGame {
     }
     _hitTargetIndices.clear();
 
+    _wormholePairs = [
+      for (final spec in level.wormholes) WormholePair(spec),
+    ];
+    for (final pair in _wormholePairs) {
+      world.add(pair.endA);
+      world.add(pair.endB);
+    }
+    _wormholeCooldown = 0;
+
     rocket = Rocket(
       position: level.rocketStart.clone(),
       initialFacingAngleRad: _degToRad(level.baseLaunchAngleDeg),
@@ -115,6 +134,10 @@ class GravityRocketGame extends FlameGame {
     world.removeAll(world.children.query<Planet>());
     world.removeAll(targets);
     world.remove(rocket);
+    for (final pair in _wormholePairs) {
+      world.remove(pair.endA);
+      world.remove(pair.endB);
+    }
 
     level = newLevel;
     lastLaunchPower = null;
@@ -166,6 +189,7 @@ class GravityRocketGame extends FlameGame {
     status = GameStatus.ready;
     loseReason = null;
     _hitTargetIndices.clear();
+    _wormholeCooldown = 0;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
     resumeEngine();
@@ -199,6 +223,12 @@ class GravityRocketGame extends FlameGame {
       return;
     }
 
+    if (_wormholeCooldown > 0) {
+      _wormholeCooldown -= dt;
+    } else {
+      _checkWormholeTeleport();
+    }
+
     if (_hasCrashed()) {
       _lose(LoseReason.crash);
       return;
@@ -218,6 +248,36 @@ class GravityRocketGame extends FlameGame {
       }
     }
     return _hitTargetIndices.length == targets.length;
+  }
+
+  /// Checks whether the rocket's most recent movement segment (see
+  /// [Rocket.previousPosition]) crossed into either end of any wormhole
+  /// pair, and if so teleports it to the paired exit and starts
+  /// [_wormholeCooldown] so it can't immediately re-trigger by re-entering
+  /// the exit end on the very next frame.
+  void _checkWormholeTeleport() {
+    for (final pair in _wormholePairs) {
+      if (segmentIntersectsCircle(
+        start: rocket.previousPosition,
+        end: rocket.position,
+        center: pair.endA.position,
+        radius: pair.endA.radius,
+      )) {
+        rocket.teleport(pair.endB.position);
+        _wormholeCooldown = _wormholeCooldownSeconds;
+        return;
+      }
+      if (segmentIntersectsCircle(
+        start: rocket.previousPosition,
+        end: rocket.position,
+        center: pair.endB.position,
+        radius: pair.endB.radius,
+      )) {
+        rocket.teleport(pair.endA.position);
+        _wormholeCooldown = _wormholeCooldownSeconds;
+        return;
+      }
+    }
   }
 
   bool _hasCrashed() {

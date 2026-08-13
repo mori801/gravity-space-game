@@ -97,5 +97,39 @@ void main() {
         expect(game.status, GameStatus.won);
       },
     );
+
+    testWithGame<GravityRocketGame>(
+      'entering a wormhole teleports the rocket to the paired exit',
+      () => GravityRocketGame(
+        level: LevelData(
+          id: 'test-wormhole',
+          name: 'Test Wormhole',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 300,
+          maxLaunchSpeed: 300,
+          planets: const [],
+          targetPosition: Vector2(1000, 1000),
+          targetRadius: 10,
+          wormholes: [
+            WormholeSpec(a: Vector2(100, 0), b: Vector2(-300, 0), radius: 15),
+          ],
+          playBounds: const Rect.fromLTWH(-1000, -1000, 3000, 3000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+
+        expect(
+          (game.rocket.position - Vector2(-300, 0)).length,
+          lessThan(1.0),
+        );
+      },
+    );
   });
 }

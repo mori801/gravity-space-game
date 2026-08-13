@@ -155,6 +155,15 @@ class Rocket extends PositionComponent {
     }
   }
 
+  /// Instantly moves the rocket to [newPosition] (e.g. a wormhole exit),
+  /// keeping its current velocity. Also snaps [previousPosition] to match,
+  /// so the very next frame's segment-vs-circle crash check doesn't see a
+  /// long spurious segment spanning the teleport.
+  void teleport(Vector2 newPosition) {
+    position.setFrom(newPosition);
+    previousPosition.setFrom(newPosition);
+  }
+
   /// Returns the rocket to [startPosition], stationary and facing
   /// [facingAngleRad], ready to be launched again. The last aim direction
   /// (if any) is intentionally kept as-is, at resting visibility, so a
