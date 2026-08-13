@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
 
 void main() {
@@ -55,6 +56,67 @@ void main() {
           reason: level.id,
         );
       }
+    });
+
+    test('every wormhole pair has positive radius and both ends in bounds', () {
+      for (final level in kLevels) {
+        for (final wormhole in level.wormholes) {
+          expect(wormhole.radius, greaterThan(0), reason: level.id);
+          expect(
+            level.playBounds.contains(Offset(wormhole.a.x, wormhole.a.y)),
+            isTrue,
+            reason: level.id,
+          );
+          expect(
+            level.playBounds.contains(Offset(wormhole.b.x, wormhole.b.y)),
+            isTrue,
+            reason: level.id,
+          );
+        }
+      }
+    });
+
+    test('targets getter combines the primary target with additionalTargets', () {
+      for (final level in kLevels) {
+        expect(
+          level.targets.length,
+          1 + level.additionalTargets.length,
+          reason: level.id,
+        );
+        expect(level.targets.first.position, level.targetPosition, reason: level.id);
+      }
+    });
+
+    test('every planet motion has sane (positive) parameters', () {
+      for (final level in kLevels) {
+        for (final planet in level.planets) {
+          final motion = planet.motion;
+          if (motion is OrbitMotion) {
+            expect(motion.radius, greaterThan(0), reason: level.id);
+          } else if (motion is OscillateMotion) {
+            expect(motion.amplitude, greaterThan(0), reason: level.id);
+            expect(motion.periodSeconds, greaterThan(0), reason: level.id);
+          }
+        }
+      }
+    });
+
+    test('at least one level uses each new mechanic', () {
+      expect(
+        kLevels.any((l) => l.planets.any((p) => p.motion is OrbitMotion)),
+        isTrue,
+        reason: 'expected at least one level with a moving planet',
+      );
+      expect(
+        kLevels.any((l) => l.wormholes.isNotEmpty),
+        isTrue,
+        reason: 'expected at least one level with a wormhole',
+      );
+      expect(
+        kLevels.any((l) => l.additionalTargets.isNotEmpty),
+        isTrue,
+        reason: 'expected at least one multi-target level',
+      );
     });
   });
 }

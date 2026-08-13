@@ -222,11 +222,90 @@ final List<LevelData> _generatedLevels = List.generate(20, (i) {
   );
 });
 
-/// The full level roster: 3 hand-tuned levels teaching the mechanic, then
-/// 20 procedurally-generated levels of increasing difficulty.
+final LevelData _orbitalDance = LevelData(
+  id: 'orbital-dance',
+  name: 'Orbital Dance',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 35,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 520,
+  planets: [
+    PlanetSpec(
+      position: Vector2(450, 650),
+      mass: 3200,
+      radius: 50,
+      color: const Color(0xFF4C8DFF),
+      motion: OrbitMotion(
+        center: Vector2(450, 650),
+        radius: 120,
+        angularSpeedRadPerSec: 0.6,
+      ),
+    ),
+  ],
+  targetPosition: Vector2(750, 150),
+  targetRadius: 65,
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _wormholeShortcut = LevelData(
+  id: 'wormhole-shortcut',
+  name: 'Wormhole Shortcut',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 30,
+  minLaunchSpeed: 200,
+  maxLaunchSpeed: 480,
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 500),
+      mass: 3000,
+      radius: 55,
+      color: const Color(0xFFFF9142),
+    ),
+  ],
+  targetPosition: Vector2(750, 150),
+  targetRadius: 65,
+  wormholes: [
+    WormholeSpec(a: Vector2(600, 900), b: Vector2(650, 300), radius: 35),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _twinTargets = LevelData(
+  id: 'twin-targets',
+  name: 'Twin Targets',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 35,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 520,
+  planets: [
+    PlanetSpec(
+      position: Vector2(450, 650),
+      mass: 2800,
+      radius: 50,
+      color: const Color(0xFFB06CFF),
+    ),
+  ],
+  targetPosition: Vector2(200, 150),
+  targetRadius: 55,
+  additionalTargets: [
+    TargetSpec(position: Vector2(700, 150), radius: 55),
+  ],
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+/// The full level roster: 3 hand-tuned levels teaching the core mechanic,
+/// 20 procedurally-generated levels of increasing difficulty, then 3
+/// hand-tuned showcase levels for moving planets, wormholes, and
+/// multi-target wins.
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
   _threadingTheNeedle,
   ..._generatedLevels,
+  _orbitalDance,
+  _wormholeShortcut,
+  _twinTargets,
 ];
