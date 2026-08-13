@@ -173,5 +173,24 @@ void main() {
         expect(planet.position.x, isNot(closeTo(500, 1e-6)));
       },
     );
+
+    testWithGame<GravityRocketGame>(
+      'attempts count increments per launch and resets on loadLevel',
+      () => GravityRocketGame(level: kLevels.first),
+      (game) async {
+        await game.ready();
+        expect(game.attempts, 0);
+
+        game.launch(power: 0.5, angleOffset: 0);
+        expect(game.attempts, 1);
+
+        game.resetLevel();
+        game.launch(power: 0.5, angleOffset: 0);
+        expect(game.attempts, 2);
+
+        game.loadLevel(kLevels[1]);
+        expect(game.attempts, 0);
+      },
+    );
   });
 }

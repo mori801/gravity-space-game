@@ -30,6 +30,12 @@ class GravityRocketGame extends FlameGame {
   GameStatus status = GameStatus.ready;
   LoseReason? loseReason;
 
+  /// Number of real launches made during the current level session (across
+  /// retries), used to compute the star rating on win. Reset by
+  /// [loadLevel]; NOT reset by [resetLevel], so retries accumulate toward
+  /// a worse star rating exactly as intended.
+  int attempts = 0;
+
   late Rocket rocket;
 
   /// All targets the rocket must reach to win this level (see
@@ -143,6 +149,7 @@ class GravityRocketGame extends FlameGame {
     level = newLevel;
     lastLaunchPower = null;
     lastLaunchAngleOffset = null;
+    attempts = 0;
     _buildLevel();
 
     status = GameStatus.ready;
@@ -160,6 +167,8 @@ class GravityRocketGame extends FlameGame {
     if (status != GameStatus.ready) {
       return;
     }
+
+    attempts++;
 
     lastLaunchPower = power;
     lastLaunchAngleOffset = angleOffset;

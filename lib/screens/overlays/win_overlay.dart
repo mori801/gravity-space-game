@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
 import '../../game/levels/levels.dart';
+import '../../game/progress/level_progress.dart';
 import '../level_select_screen.dart';
 
 /// Shown when a level is won. Tuned to get the player back into the action
@@ -65,6 +66,10 @@ class _WinOverlayState extends State<WinOverlay>
     _currentIndex = kLevels.indexWhere((l) => l.id == widget.game.level.id);
     _hasNextLevel = _currentIndex >= 0 && _currentIndex < kLevels.length - 1;
     _isLastLevel = _currentIndex == kLevels.length - 1;
+
+    LevelProgress.load().then((progress) {
+      progress.recordCompletion(widget.game.level.id, widget.game.attempts);
+    });
 
     _entranceController = AnimationController(
       duration: const Duration(milliseconds: 150),
