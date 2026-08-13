@@ -132,6 +132,12 @@ class Rocket extends PositionComponent {
     _aimOpacity = 1;
   }
 
+  /// Exposes [_aimAngleRad] for widget tests that need to assert keyboard
+  /// steering actually moved the aim, without making the field itself
+  /// public.
+  @visibleForTesting
+  double? get aimAngleRadForTest => _aimAngleRad;
+
   /// Called continuously while the player holds the power button, with the
   /// current charge fraction (0..1). See [_chargePower].
   void setCharge(double power) {
@@ -191,8 +197,8 @@ class Rocket extends PositionComponent {
     _time += dt;
 
     if (_aimOpacity > _aimRestingOpacity) {
-      _aimOpacity = (_aimOpacity - dt / _aimFadeDuration)
-          .clamp(_aimRestingOpacity, 1.0);
+      _aimOpacity =
+          (_aimOpacity - dt / _aimFadeDuration).clamp(_aimRestingOpacity, 1.0);
     }
 
     if (_launchPulseT < _launchPulseDuration) {
@@ -296,9 +302,8 @@ class Rocket extends PositionComponent {
     // be redundant and misleadingly suggest a hard edge that doesn't
     // exist — the full ring already communicates "steer anywhere". Only
     // draw the two boundary ticks for a genuinely bounded arc.
-    final tickAngles = range < math.pi
-        ? [base - range, base, base + range]
-        : [base];
+    final tickAngles =
+        range < math.pi ? [base - range, base, base + range] : [base];
     for (final tickAngle in tickAngles) {
       final dir = Offset(math.cos(tickAngle), math.sin(tickAngle));
       canvas.drawLine(dir * (radius - 5), dir * (radius + 5), tickPaint);
@@ -378,8 +383,10 @@ class Rocket extends PositionComponent {
     final headBase = end - dir * headLength;
     final headPath = Path()
       ..moveTo(end.dx, end.dy)
-      ..lineTo((headBase + perp * headWidth).dx, (headBase + perp * headWidth).dy)
-      ..lineTo((headBase - perp * headWidth).dx, (headBase - perp * headWidth).dy)
+      ..lineTo(
+          (headBase + perp * headWidth).dx, (headBase + perp * headWidth).dy)
+      ..lineTo(
+          (headBase - perp * headWidth).dx, (headBase - perp * headWidth).dy)
       ..close();
 
     canvas.drawPath(
@@ -390,7 +397,8 @@ class Rocket extends PositionComponent {
         ..strokeWidth = 3
         ..strokeJoin = StrokeJoin.round,
     );
-    canvas.drawPath(headPath, Paint()..color = _aimColor.withOpacity(displayOpacity));
+    canvas.drawPath(
+        headPath, Paint()..color = _aimColor.withOpacity(displayOpacity));
   }
 
   /// A quick expanding-and-fading ring centered on the rocket, fired once

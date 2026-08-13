@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../../game/gravity_rocket_game.dart';
 import '../../game/levels/levels.dart';
@@ -27,8 +29,7 @@ class HudOverlay extends StatefulWidget {
   State<HudOverlay> createState() => _HudOverlayState();
 }
 
-class _HudOverlayState extends State<HudOverlay>
-    with TickerProviderStateMixin {
+class _HudOverlayState extends State<HudOverlay> with TickerProviderStateMixin {
   static const _chargeDuration = Duration(milliseconds: 1200);
   static const _minLaunchPower = 0.15;
 
@@ -67,9 +68,38 @@ class _HudOverlayState extends State<HudOverlay>
   /// Set to false the instant the player makes a real gesture.
   bool _tutorialVisible = false;
 
+  /// Which arrow/A-D steer key(s) are currently held down. Driven by
+  /// [_KeyboardControls]' key-down/key-up callbacks; [_steerTicker] reads
+  /// this every frame while non-empty to apply continuous steering, so
+  /// holding a key feels like a held drag rather than a single nudge per
+  /// keystroke.
+  final Set<LogicalKeyboardKey> _heldSteerKeys = {};
+
+  /// Tracks whether Space is currently held, to collapse the OS's repeated
+  /// key-down events for a held key into a single [_startCharging] call.
+  /// See [_handleKeyEvent].
+  bool _spaceHeld = false;
+
+  /// Advances steering by one [_adjustAim] step per frame for every held
+  /// arrow/A-D key, only while the game is in [GameStatus.ready] (the
+  /// same state the on-screen aim/charge UI is shown in). Stopped/started
+  /// as keys are pressed/released rather than left running idle, since a
+  /// `Ticker` still costs a frame callback registration while active.
+  late final Ticker _steerTicker;
+
   @override
   void initState() {
     super.initState();
+    _steerTicker = createTicker((_) {
+      if (_heldSteerKeys.contains(LogicalKeyboardKey.arrowLeft) ||
+          _heldSteerKeys.contains(LogicalKeyboardKey.keyA)) {
+        _steerLeft();
+      }
+      if (_heldSteerKeys.contains(LogicalKeyboardKey.arrowRight) ||
+          _heldSteerKeys.contains(LogicalKeyboardKey.keyD)) {
+        _steerRight();
+      }
+    });
     _powerController = AnimationController(
       vsync: this,
       duration: _chargeDuration,
@@ -100,6 +130,7 @@ class _HudOverlayState extends State<HudOverlay>
 
   @override
   void dispose() {
+    _steerTicker.dispose();
     _powerController.dispose();
     _kickController.dispose();
     _tutorialLoopController.dispose();
@@ -163,6 +194,68 @@ class _HudOverlayState extends State<HudOverlay>
     final angleDeg =
         level.baseLaunchAngleDeg + _angleOffset * level.launchAngleRangeDeg;
     widget.game.rocket.setAim(angleDeg * math.pi / 180);
+  }
+
+  /// One arrow-key/A-D "tick" worth of steering, expressed in the same
+  /// pixel-delta units [_adjustAim] already accepts from mouse/touch drag
+  /// — reusing that exact math is what keeps keyboard, mouse, and touch
+  /// steering indistinguishable to the rocket. Tuned so holding the key
+  /// sweeps the full -1..1 range in under a second at [_steerTicker]'s
+  /// per-frame (~60Hz) rate.
+  static const double _keyboardStepPixels = 10;
+
+  void _steerLeft() => _adjustAim(-_keyboardStepPixels);
+
+  void _steerRight() => _adjustAim(_keyboardStepPixels);
+
+  /// Routes a raw keyboard event to steering/charging, mirroring the
+  /// touch/mouse gestures below: arrow keys / A-D hold-to-steer via
+  /// [_steerTicker], Space hold-to-charge via the same
+  /// [_startCharging]/[_release] the on-screen power button calls. Ignores
+  /// anything else so unrelated keys (e.g. browser devtools shortcuts)
+  /// pass through untouched. Only active while [GameStatus.ready] — the
+  /// same state the aim/charge UI itself is shown in — so a key held from
+  /// a previous attempt can't "steer" a rocket that's already flying.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.game.status != GameStatus.ready) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final steerKeys = {
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.keyA,
+      LogicalKeyboardKey.keyD,
+    };
+    if (steerKeys.contains(key)) {
+      if (event is KeyDownEvent) {
+        if (_heldSteerKeys.add(key) && !_steerTicker.isActive) {
+          _steerTicker.start();
+        }
+      } else if (event is KeyUpEvent) {
+        _heldSteerKeys.remove(key);
+        if (_heldSteerKeys.isEmpty) {
+          _steerTicker.stop();
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.space) {
+      // Guards against the OS sending repeated KeyDownEvents while a key
+      // stays physically held (no `.repeat` flag exists on this event
+      // type to check instead) — without this, each repeat would restart
+      // `_powerController` from 0, so the charge could never progress
+      // past whatever a single repeat interval allows.
+      if (event is KeyDownEvent && !_spaceHeld) {
+        _spaceHeld = true;
+        _startCharging();
+      } else if (event is KeyUpEvent) {
+        _spaceHeld = false;
+        _release();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _startCharging() {
@@ -638,11 +731,15 @@ class _HudOverlayState extends State<HudOverlay>
       );
     }
 
-    return Stack(
-      children: [
-        statusContent,
-        _buildLevelLabel(game),
-      ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Stack(
+        children: [
+          statusContent,
+          _buildLevelLabel(game),
+        ],
+      ),
     );
   }
 }
