@@ -735,6 +735,14 @@ Then add this new test inside the existing `group('GravityRocketGame', () { ... 
       ),
       (game) async {
         await game.ready();
+        // Environment note (found repairing the baseline, not in the
+        // original spec): flame 1.38's OverlayManager asserts an overlay
+        // name is a registered builder before overlays.add(name) can
+        // succeed. This test reaches GameStatus.won, which calls
+        // overlays.add('WinOverlay') — register a stub builder first,
+        // exactly like the existing "reaching the target wins the level"
+        // test above now does.
+        game.overlays.addEntry('WinOverlay', (context, game) => const SizedBox.shrink());
 
         game.rocket.position.setFrom(Vector2(200, 0));
         game.launch(power: 0, angleOffset: 0);
@@ -747,6 +755,8 @@ Then add this new test inside the existing `group('GravityRocketGame', () { ... 
       },
     );
 ```
+
+Note: `flutter/widgets.dart` (for `SizedBox`) must already be imported at the top of the test file from the baseline repair — if it isn't, add `import 'package:flutter/widgets.dart';`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
