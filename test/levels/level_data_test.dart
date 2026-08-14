@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
@@ -56,6 +55,17 @@ const Set<String> _directLineAllowList = {
   // fight the documented, intentional design rather than fix a real
   // "too easy" oversight.
   'sequence-gauntlet-loop',
+
+  // The remaining tier 11 · sequence levels, for the same structural
+  // reason. This test only inspects the *primary* target, which on an
+  // ordered level is merely checkpoint 1 — the opening hop, deliberately
+  // reachable. Their difficulty lives in collecting every checkpoint in
+  // one uninterrupted flight, which is a property this geometric check
+  // cannot see at all but `test/levels/solvability_test.dart` verifies
+  // directly by flying them. Demanding a blocker in front of checkpoint 1
+  // here would measure the wrong thing.
+  'sequence-slingshot-relay',
+  'sequence-orbital-checkpoints',
 };
 
 const _tier10Ids = [
@@ -211,7 +221,8 @@ void main() {
       );
     });
 
-    test('no-fly zones have positive radius and never contain the rocket '
+    test(
+        'no-fly zones have positive radius and never contain the rocket '
         'start or target', () {
       for (final level in kLevels) {
         for (final zone in level.noFlyZones) {
@@ -274,10 +285,8 @@ void main() {
         'level-36',
         for (var i = 0; i < 8; i++) 'level-${37 + i}',
       };
-      final actualIds = kLevels
-          .where((l) => l.maxShots != null)
-          .map((l) => l.id)
-          .toSet();
+      final actualIds =
+          kLevels.where((l) => l.maxShots != null).map((l) => l.id).toSet();
       expect(actualIds, expectedIds);
     });
 
@@ -292,7 +301,8 @@ void main() {
       }
     });
 
-    test('wind zones have positive radius/magnitude and stay clear of the '
+    test(
+        'wind zones have positive radius/magnitude and stay clear of the '
         'rocket start and target', () {
       for (final level in kLevels) {
         for (final zone in level.windZones) {
@@ -316,9 +326,8 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier10Count = kLevels
-          .where((l) => _tier10Ids.contains(l.id))
-          .length;
+      final actualTier10Count =
+          kLevels.where((l) => _tier10Ids.contains(l.id)).length;
       expect(actualTier10Count, 4);
     });
 
@@ -338,8 +347,7 @@ void main() {
         expect(
           tier10Levels.any((l) => l.planets.any((p) => p.mass < 0)),
           isTrue,
-          reason:
-              'expected at least one Tier 10 level with a repulsor planet '
+          reason: 'expected at least one Tier 10 level with a repulsor planet '
               '(negative mass) — otherwise the tier is not actually '
               'exercising the repulsor mechanic',
         );
@@ -354,9 +362,8 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier11Count = kLevels
-          .where((l) => _tier11Ids.contains(l.id))
-          .length;
+      final actualTier11Count =
+          kLevels.where((l) => _tier11Ids.contains(l.id)).length;
       expect(actualTier11Count, 4);
     });
 
@@ -387,9 +394,8 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier12Count = kLevels
-          .where((l) => _tier12Ids.contains(l.id))
-          .length;
+      final actualTier12Count =
+          kLevels.where((l) => _tier12Ids.contains(l.id)).length;
       expect(actualTier12Count, 4);
     });
 
@@ -402,7 +408,8 @@ void main() {
       },
     );
 
-    test('black holes have positive radius/mass and stay within bounds, '
+    test(
+        'black holes have positive radius/mass and stay within bounds, '
         'with an in-bounds exit position', () {
       for (final level in kLevels) {
         for (final hole in level.blackHoles) {
@@ -425,7 +432,8 @@ void main() {
       }
     });
 
-    test('at least one tier 12 level has a black hole with a non-default '
+    test(
+        'at least one tier 12 level has a black hole with a non-default '
         'exitVelocityScale', () {
       final tier12Levels = kLevels.where((l) => _tier12Ids.contains(l.id));
       expect(
@@ -433,13 +441,13 @@ void main() {
           (l) => l.blackHoles.any((h) => h.exitVelocityScale != 1.0),
         ),
         isTrue,
-        reason:
-            'expected at least one Tier 12 level to exercise a '
+        reason: 'expected at least one Tier 12 level to exercise a '
             'non-default exitVelocityScale',
       );
     });
 
-    test('every non-black-hole-tier level has an empty blackHoles list '
+    test(
+        'every non-black-hole-tier level has an empty blackHoles list '
         '(additive default holds)', () {
       for (final level in kLevels) {
         if (_tier12Ids.contains(level.id)) continue;
@@ -447,7 +455,8 @@ void main() {
       }
     });
 
-    test('the naive straight shot from rocketStart to the primary target is '
+    test(
+        'the naive straight shot from rocketStart to the primary target is '
         'blocked by a real obstacle (planet, no-fly zone, or black hole), '
         'unless explicitly allow-listed', () {
       for (final level in kLevels) {
@@ -463,8 +472,7 @@ void main() {
           return distance <= radius + _obstacleClearanceMargin;
         }
 
-        final blocked =
-            level.planets.any(
+        final blocked = level.planets.any(
               (p) => isBlockedBy(p.position.x, p.position.y, p.radius),
             ) ||
             level.noFlyZones.any(
@@ -477,8 +485,7 @@ void main() {
         expect(
           blocked,
           isTrue,
-          reason:
-              '${level.id}: the straight rocketStart -> targetPosition '
+          reason: '${level.id}: the straight rocketStart -> targetPosition '
               'line has no obstacle within ${_obstacleClearanceMargin}px '
               'of it — this level is a free direct shot',
         );

@@ -45,10 +45,25 @@ const int _powerSamples = 48;
 const double _dt = 1 / 60;
 const int _maxSteps = 900;
 
+/// The real game only calls a shot out of bounds once it is this far
+/// outside [LevelData.playBounds] (`GravityRocketGame._outOfBoundsMargin`),
+/// so the sweep has to allow the same slack or it would cut off routes
+/// that legitimately clip the edge and come back.
+const double _outOfBoundsMargin = 60;
+
+bool _inBounds(LevelData level, Vector2 position) {
+  final b = level.playBounds;
+  return position.x >= b.left - _outOfBoundsMargin &&
+      position.x <= b.right + _outOfBoundsMargin &&
+      position.y >= b.top - _outOfBoundsMargin &&
+      position.y <= b.bottom + _outOfBoundsMargin;
+}
+
 /// Flies every angle/power combination and returns true as soon as one
-/// reaches the target. Mirrors `Rocket.update`'s integration: gravity from
-/// planets (and black holes, which are just very heavy gravity sources)
-/// plus wind, applied to velocity, then velocity applied to position.
+/// wins the level outright. Mirrors `Rocket.update`'s integration: gravity
+/// from planets (and black holes, which are just very heavy gravity
+/// sources) plus wind, applied to velocity, then velocity applied to
+/// position.
 bool _isSolvable(LevelData level) {
   final gravitySources = <GravitySource>[
     for (final planet in level.planets)
@@ -82,6 +97,13 @@ bool _isSolvable(LevelData level) {
       final position = level.rocketStart.clone();
       final velocity = Vector2(math.cos(angle), math.sin(angle))..scale(speed);
 
+      // Mirrors GravityRocketGame._hitTargetIndices: a level is only won
+      // when EVERY target has been hit, all within this one uninterrupted
+      // flight (the real game clears its hit set on every reset), and in
+      // index order when level.ordered is set.
+      final targets = level.targets;
+      final hit = List<bool>.filled(targets.length, false);
+
       for (var step = 0; step < _maxSteps; step++) {
         final acceleration = gravitationalAcceleration(
           objectPosition: position,
@@ -93,16 +115,28 @@ bool _isSolvable(LevelData level) {
         velocity.addScaled(acceleration, _dt);
         position.addScaled(velocity, _dt);
 
-        if ((position - level.targetPosition).length <= level.targetRadius) {
-          return true;
+        var remaining = 0;
+        for (var t = 0; t < targets.length; t++) {
+          if (hit[t]) continue;
+          // On an ordered level a target can't register until every
+          // earlier one already has, so the first unhit index is the only
+          // one that can be scored this frame.
+          final blockedByOrder = level.ordered && remaining > 0;
+          if (!blockedByOrder &&
+              (position - targets[t].position).length <= targets[t].radius) {
+            hit[t] = true;
+            continue;
+          }
+          remaining++;
         }
+        if (remaining == 0) return true;
 
         var ended = false;
         for (final planet in level.planets) {
-          // Only real planets are solid; a repulsor pushes the rocket away
-          // rather than being crashed into.
-          if (planet.mass > 0 &&
-              (position - planet.position).length <= planet.radius) {
+          // Repulsors are solid bodies too — the real _hasCrashed() checks
+          // every planet regardless of mass sign, so a shot that flies
+          // through one is a crash, not a route.
+          if ((position - planet.position).length <= planet.radius) {
             ended = true;
             break;
           }
@@ -115,8 +149,7 @@ bool _isSolvable(LevelData level) {
             }
           }
         }
-        if (!ended &&
-            !level.playBounds.contains(Offset(position.x, position.y))) {
+        if (!ended && !_inBounds(level, position)) {
           ended = true;
         }
         if (ended) break;

@@ -109,7 +109,7 @@ class BlackHoleSpec {
   final double radius;
 
   /// Gravitational mass — see `physics/gravity.dart`. Always well above a
-  /// normal planet's (2000-3400) so the pull is dramatic and readable from
+  /// normal planet's (roughly 2000-4800) so the pull is dramatic and readable from
   /// a distance; always positive (a black hole always attracts, never
   /// repels).
   final double mass;

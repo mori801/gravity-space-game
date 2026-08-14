@@ -36,7 +36,7 @@ class BlackHole extends PositionComponent {
 
   /// Gravitational mass — see `GravitySource.mass` / `gravitationalAcceleration`
   /// in `physics/gravity.dart`. Always far above a normal planet's
-  /// (2000-3400) so the pull is dramatic and readable from a distance.
+  /// (roughly 2000-4800) so the pull is dramatic and readable from a distance.
   final double mass;
 
   static const Color _coreColor = Color(0xFF0D0620);

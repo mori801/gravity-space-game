@@ -627,15 +627,21 @@ final LevelData _twinTargets = LevelData(
       // 820), which sits within ~92px of both symmetric direct paths
       // (to (200, 150) and to (700, 150)), and enlarged/massed up so
       // neither target is a free direct shot.
-      position: Vector2(450, 820),
+      position: Vector2(601, 820),
       mass: 3200,
       radius: 65,
       color: const Color(0xFFB06CFF),
     ),
   ],
-  targetPosition: Vector2(200, 150),
+  // Both targets sit on one arc the rocket can actually fly. The old
+  // layout (200,150) + (700,150) put them on opposite sides of the field,
+  // and since every target has to be collected in a single uninterrupted
+  // flight (the game clears its hit set on every reset), no launch angle
+  // or power could reach both — the level was unwinnable. Verified by
+  // sweeping the whole launch space.
+  targetPosition: Vector2(711, 523),
   targetRadius: 55,
-  additionalTargets: [TargetSpec(position: Vector2(700, 150), radius: 55)],
+  additionalTargets: [TargetSpec(position: Vector2(325, 93), radius: 55)],
   playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
 );
 
@@ -830,11 +836,15 @@ final LevelData _sequenceSlingshotRelay = LevelData(
   // level with target 1 across the play area) before target 1 (near
   // planet A) since both sit at a similar distance from rocketStart —
   // but the required order is: near A, then near B, then top-center.
-  targetPosition: Vector2(230, 650),
+  // Checkpoints re-laid along a single flyable arc, in flight order. The
+  // old spread (230,650) -> (750,650) -> (490,150) could not be collected
+  // in one uninterrupted flight, which is what an ordered level requires,
+  // so it was unwinnable. Verified by sweeping the whole launch space.
+  targetPosition: Vector2(884, 925),
   targetRadius: 56,
   additionalTargets: [
-    TargetSpec(position: Vector2(750, 650), radius: 56),
-    TargetSpec(position: Vector2(490, 150), radius: 56),
+    TargetSpec(position: Vector2(689, 306), radius: 56),
+    TargetSpec(position: Vector2(403, 93), radius: 56),
   ],
   playBounds: const Rect.fromLTWH(0, 0, 980, 1450),
 );
@@ -878,11 +888,16 @@ final LevelData _sequenceOrbitalCheckpoints = LevelData(
       color: const Color(0xFFFF9142),
     ),
   ],
-  targetPosition: Vector2(220, 1050),
+  // Checkpoints re-laid along one flyable arc, in flight order. The old
+  // spread could not be collected in a single uninterrupted flight, which
+  // an ordered level requires, so it was unwinnable. Verified by sweeping
+  // the whole launch space (with the orbiting planets treated as frozen at
+  // their spawn point, which is the stricter assumption of the two).
+  targetPosition: Vector2(473, 515),
   targetRadius: 58,
   additionalTargets: [
-    TargetSpec(position: Vector2(820, 600), radius: 58),
-    TargetSpec(position: Vector2(475, 150), radius: 58),
+    TargetSpec(position: Vector2(775, 859), radius: 58),
+    TargetSpec(position: Vector2(253, 1358), radius: 58),
   ],
   playBounds: const Rect.fromLTWH(0, 0, 950, 1450),
 );
@@ -914,11 +929,15 @@ final LevelData _sequenceGauntletLoop = LevelData(
   // targets 2 and 3 are near-symmetric on opposite far sides, tempting a
   // player to grab whichever is more convenient first — but the required
   // order is center, then left, then right.
-  targetPosition: Vector2(475, 950),
+  // Checkpoints re-laid along one flyable arc, in flight order. The old
+  // spread could not be collected in a single uninterrupted flight, which
+  // an ordered level requires, so it was unwinnable. Verified by sweeping
+  // the whole launch space.
+  targetPosition: Vector2(144, 864),
   targetRadius: 55,
   additionalTargets: [
-    TargetSpec(position: Vector2(150, 200), radius: 55),
-    TargetSpec(position: Vector2(800, 200), radius: 55),
+    TargetSpec(position: Vector2(248, 301), radius: 55),
+    TargetSpec(position: Vector2(509, 91), radius: 55),
   ],
   playBounds: const Rect.fromLTWH(0, 0, 950, 1300),
 );
