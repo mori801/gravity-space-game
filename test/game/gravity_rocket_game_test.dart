@@ -363,6 +363,143 @@ void main() {
     );
 
     testWithGame<GravityRocketGame>(
+      'entering a black hole teleports the rocket to its exit position',
+      () => _testGame(
+        LevelData(
+          id: 'test-black-hole',
+          name: 'Test Black Hole',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 300,
+          maxLaunchSpeed: 300,
+          planets: const [],
+          targetPosition: Vector2(2000, 2000),
+          targetRadius: 10,
+          blackHoles: [
+            BlackHoleSpec(
+              position: Vector2(100, 0),
+              radius: 30,
+              mass: 10000,
+              exitPosition: Vector2(-400, 0),
+            ),
+          ],
+          playBounds: const Rect.fromLTWH(-1000, -1000, 3000, 3000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+
+        expect((game.rocket.position - Vector2(-400, 0)).length, lessThan(1.0));
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'the capture cooldown stops the rocket re-entering on the next frame',
+      () => _testGame(
+        LevelData(
+          id: 'test-black-hole-cooldown',
+          name: 'Test Black Hole Cooldown',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 300,
+          maxLaunchSpeed: 300,
+          planets: const [],
+          targetPosition: Vector2(2000, 2000),
+          targetRadius: 10,
+          // The exit sits *inside* the event horizon on purpose: without a
+          // cooldown this level would teleport the rocket back to that same
+          // spot every single frame forever, pinning it there. The mass is
+          // deliberately negligible (a real hole is ~10000) so gravity can't
+          // muddy the result — this test isolates the cooldown; the pull has
+          // its own test.
+          blackHoles: [
+            BlackHoleSpec(
+              position: Vector2(100, 0),
+              radius: 40,
+              mass: 1,
+              exitPosition: Vector2(110, 0),
+            ),
+          ],
+          playBounds: const Rect.fromLTWH(-1000, -1000, 3000, 3000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        game.rocket.position.setFrom(Vector2(100, 0));
+        game.launch(power: 0, angleOffset: 0);
+        game.update(1 / 60);
+        expect((game.rocket.position - Vector2(110, 0)).length, lessThan(1.0));
+
+        // The rocket is still inside the horizon, so an un-cooled-down
+        // implementation would re-capture and pin it back onto the exit
+        // every frame. With the cooldown it just keeps flying (~5 units per
+        // frame at 300 units/sec), so it must have left the exit behind.
+        game.update(1 / 60);
+        game.update(1 / 60);
+        expect(
+          (game.rocket.position - Vector2(110, 0)).length,
+          greaterThan(5.0),
+          reason: 'rocket should keep flying, not be snapped back onto the '
+              'exit position again while the cooldown is running',
+        );
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      "a black hole's gravity bends a passing rocket toward it",
+      () => _testGame(
+        LevelData(
+          id: 'test-black-hole-gravity',
+          name: 'Test Black Hole Gravity',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 400,
+          maxLaunchSpeed: 400,
+          planets: const [],
+          targetPosition: Vector2(2000, 2000),
+          targetRadius: 10,
+          // Placed well off the flight line and with a small horizon, so the
+          // rocket flies past rather than being captured — what's under test
+          // is the pull, not the teleport.
+          blackHoles: [
+            BlackHoleSpec(
+              position: Vector2(400, 300),
+              radius: 15,
+              mass: 12000,
+              exitPosition: Vector2(-900, 0),
+            ),
+          ],
+          playBounds: const Rect.fromLTWH(-1000, -1000, 3000, 3000),
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        // Launch straight along +x; with no gravity at all the rocket would
+        // keep y == 0 forever, so any downward drift is the hole pulling.
+        game.launch(power: 1, angleOffset: 0);
+        for (var i = 0; i < 30; i++) {
+          game.update(1 / 60);
+        }
+
+        expect(
+          game.rocket.position.y,
+          greaterThan(1.0),
+          reason: 'the black hole sits at y = 300, so it must drag the '
+              'rocket off its straight +x path toward itself',
+        );
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
       'a moving planet advances position every frame instead of staying put',
       () => _testGame(
         LevelData(

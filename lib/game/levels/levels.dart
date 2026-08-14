@@ -855,6 +855,7 @@ final LevelData _blackHoleIntro = LevelData(
   // No planets: nothing else to plan around yet — just aim into the hole
   // and see what "portal, not planet" means. Its own gravity is strong
   // enough on its own to bend a wide range of approach angles toward it.
+  planets: const [],
   blackHoles: [
     BlackHoleSpec(
       position: Vector2(450, 650),
