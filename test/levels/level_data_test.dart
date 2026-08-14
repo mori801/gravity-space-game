@@ -1,8 +1,62 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gravity_rocket_launcher/game/levels/level.dart';
 import 'package:gravity_rocket_launcher/game/levels/levels.dart';
+
+/// Shortest distance from point ([px], [py]) to the line segment running
+/// from ([ax], [ay]) to ([bx], [by]). Standard project-onto-segment-and-
+/// clamp formula; used below to detect levels where the straight shot
+/// from the rocket to the target passes nowhere near any obstacle.
+double _distanceToSegment(
+  double px,
+  double py,
+  double ax,
+  double ay,
+  double bx,
+  double by,
+) {
+  final dx = bx - ax;
+  final dy = by - ay;
+  final lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared == 0) {
+    final ddx = px - ax;
+    final ddy = py - ay;
+    return sqrt(ddx * ddx + ddy * ddy);
+  }
+  final t = (((px - ax) * dx + (py - ay) * dy) / lengthSquared).clamp(0.0, 1.0);
+  final closestX = ax + t * dx;
+  final closestY = ay + t * dy;
+  final ddx = px - closestX;
+  final ddy = py - closestY;
+  return sqrt(ddx * ddx + ddy * ddy);
+}
+
+/// A straight rocketStart -> targetPosition shot is considered "blocked"
+/// by an obstacle when the line comes within the obstacle's radius plus
+/// this clearance margin. 45px is comfortably more than a rocket/target
+/// hit-radius grazing an obstacle's edge — it means the line either
+/// clips the obstacle outright or passes close enough that its gravity
+/// (or, for no-fly zones, its exclusion radius) is unmissable, so a
+/// player genuinely cannot ignore it and fly straight through.
+const double _obstacleClearanceMargin = 45.0;
+
+/// Levels where the straight rocketStart -> targetPosition shot is
+/// legitimately unobstructed by geometry, and that's intentional rather
+/// than an oversight — kept deliberately short, each entry justified.
+const Set<String> _directLineAllowList = {
+  // "Full Circuit" (tier 11 · sequence): target 1 (the required first
+  // stop) is, by explicit design (see the doc comment on
+  // _sequenceGauntletLoop above), "a tight, low-energy loop right in
+  // front of the rocket" — a deliberate, easy warm-up hop before the
+  // real gauntlet. Targets 2 and 3, which come later in the required
+  // order, are both genuinely blocked by the level's two planets.
+  // Forcing an obstacle onto a ~280px point-blank opening hop would
+  // fight the documented, intentional design rather than fix a real
+  // "too easy" oversight.
+  'sequence-gauntlet-loop',
+};
 
 const _tier10Ids = [
   'repulsor-intro',
@@ -48,8 +102,9 @@ void main() {
     test('rocket start and target are within play bounds', () {
       for (final level in kLevels) {
         expect(
-          level.playBounds
-              .contains(Offset(level.rocketStart.x, level.rocketStart.y)),
+          level.playBounds.contains(
+            Offset(level.rocketStart.x, level.rocketStart.y),
+          ),
           isTrue,
           reason: level.id,
         );
@@ -101,18 +156,23 @@ void main() {
       }
     });
 
-    test('targets getter combines the primary target with additionalTargets',
-        () {
-      for (final level in kLevels) {
-        expect(
-          level.targets.length,
-          1 + level.additionalTargets.length,
-          reason: level.id,
-        );
-        expect(level.targets.first.position, level.targetPosition,
-            reason: level.id);
-      }
-    });
+    test(
+      'targets getter combines the primary target with additionalTargets',
+      () {
+        for (final level in kLevels) {
+          expect(
+            level.targets.length,
+            1 + level.additionalTargets.length,
+            reason: level.id,
+          );
+          expect(
+            level.targets.first.position,
+            level.targetPosition,
+            reason: level.id,
+          );
+        }
+      },
+    );
 
     test('every planet motion has sane (positive) parameters', () {
       for (final level in kLevels) {
@@ -151,28 +211,20 @@ void main() {
       );
     });
 
-    test(
-      'no-fly zones have positive radius and never contain the rocket '
-      'start or target',
-      () {
-        for (final level in kLevels) {
-          for (final zone in level.noFlyZones) {
-            expect(zone.radius, greaterThan(0), reason: level.id);
+    test('no-fly zones have positive radius and never contain the rocket '
+        'start or target', () {
+      for (final level in kLevels) {
+        for (final zone in level.noFlyZones) {
+          expect(zone.radius, greaterThan(0), reason: level.id);
 
-            final startDistance = (level.rocketStart - zone.position).length;
-            expect(startDistance, greaterThan(zone.radius), reason: level.id);
+          final startDistance = (level.rocketStart - zone.position).length;
+          expect(startDistance, greaterThan(zone.radius), reason: level.id);
 
-            final targetDistance =
-                (level.targetPosition - zone.position).length;
-            expect(
-              targetDistance,
-              greaterThan(zone.radius),
-              reason: level.id,
-            );
-          }
+          final targetDistance = (level.targetPosition - zone.position).length;
+          expect(targetDistance, greaterThan(zone.radius), reason: level.id);
         }
-      },
-    );
+      }
+    });
 
     test('maxShots, if set, is at least 1', () {
       for (final level in kLevels) {
@@ -222,8 +274,10 @@ void main() {
         'level-36',
         for (var i = 0; i < 8; i++) 'level-${37 + i}',
       };
-      final actualIds =
-          kLevels.where((l) => l.maxShots != null).map((l) => l.id).toSet();
+      final actualIds = kLevels
+          .where((l) => l.maxShots != null)
+          .map((l) => l.id)
+          .toSet();
       expect(actualIds, expectedIds);
     });
 
@@ -238,29 +292,21 @@ void main() {
       }
     });
 
-    test(
-      'wind zones have positive radius/magnitude and stay clear of the '
-      'rocket start and target',
-      () {
-        for (final level in kLevels) {
-          for (final zone in level.windZones) {
-            expect(zone.radius, greaterThan(0), reason: level.id);
-            expect(zone.forceMagnitude, greaterThan(0), reason: level.id);
+    test('wind zones have positive radius/magnitude and stay clear of the '
+        'rocket start and target', () {
+      for (final level in kLevels) {
+        for (final zone in level.windZones) {
+          expect(zone.radius, greaterThan(0), reason: level.id);
+          expect(zone.forceMagnitude, greaterThan(0), reason: level.id);
 
-            final startDistance = (level.rocketStart - zone.position).length;
-            expect(startDistance, greaterThan(zone.radius), reason: level.id);
+          final startDistance = (level.rocketStart - zone.position).length;
+          expect(startDistance, greaterThan(zone.radius), reason: level.id);
 
-            final targetDistance =
-                (level.targetPosition - zone.position).length;
-            expect(
-              targetDistance,
-              greaterThan(zone.radius),
-              reason: level.id,
-            );
-          }
+          final targetDistance = (level.targetPosition - zone.position).length;
+          expect(targetDistance, greaterThan(zone.radius), reason: level.id);
         }
-      },
-    );
+      }
+    });
 
     test('tier 10 has exactly the 4 repulsor levels', () {
       for (final id in _tier10Ids) {
@@ -270,29 +316,35 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier10Count =
-          kLevels.where((l) => _tier10Ids.contains(l.id)).length;
+      final actualTier10Count = kLevels
+          .where((l) => _tier10Ids.contains(l.id))
+          .length;
       expect(actualTier10Count, 4);
     });
 
-    test('kLevelSections attributes tier 10 levels to "Tier 10 · Repulsors"',
-        () {
-      for (final id in _tier10Ids) {
-        expect(tierTitleForLevel(id), 'Tier 10 · Repulsors', reason: id);
-      }
-    });
+    test(
+      'kLevelSections attributes tier 10 levels to "Tier 10 · Repulsors"',
+      () {
+        for (final id in _tier10Ids) {
+          expect(tierTitleForLevel(id), 'Tier 10 · Repulsors', reason: id);
+        }
+      },
+    );
 
-    test('at least one tier 10 level has a negative-mass (repulsor) planet',
-        () {
-      final tier10Levels = kLevels.where((l) => _tier10Ids.contains(l.id));
-      expect(
-        tier10Levels.any((l) => l.planets.any((p) => p.mass < 0)),
-        isTrue,
-        reason: 'expected at least one Tier 10 level with a repulsor planet '
-            '(negative mass) — otherwise the tier is not actually '
-            'exercising the repulsor mechanic',
-      );
-    });
+    test(
+      'at least one tier 10 level has a negative-mass (repulsor) planet',
+      () {
+        final tier10Levels = kLevels.where((l) => _tier10Ids.contains(l.id));
+        expect(
+          tier10Levels.any((l) => l.planets.any((p) => p.mass < 0)),
+          isTrue,
+          reason:
+              'expected at least one Tier 10 level with a repulsor planet '
+              '(negative mass) — otherwise the tier is not actually '
+              'exercising the repulsor mechanic',
+        );
+      },
+    );
 
     test('tier 11 has exactly the 4 sequence levels', () {
       for (final id in _tier11Ids) {
@@ -302,17 +354,20 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier11Count =
-          kLevels.where((l) => _tier11Ids.contains(l.id)).length;
+      final actualTier11Count = kLevels
+          .where((l) => _tier11Ids.contains(l.id))
+          .length;
       expect(actualTier11Count, 4);
     });
 
-    test('kLevelSections attributes tier 11 levels to "Tier 11 · Sequence"',
-        () {
-      for (final id in _tier11Ids) {
-        expect(tierTitleForLevel(id), 'Tier 11 · Sequence', reason: id);
-      }
-    });
+    test(
+      'kLevelSections attributes tier 11 levels to "Tier 11 · Sequence"',
+      () {
+        for (final id in _tier11Ids) {
+          expect(tierTitleForLevel(id), 'Tier 11 · Sequence', reason: id);
+        }
+      },
+    );
 
     test('ordered flag is set only on the tier 11 sequence levels', () {
       for (final level in kLevels) {
@@ -332,20 +387,22 @@ void main() {
         );
         expect(level.id, id);
       }
-      final actualTier12Count =
-          kLevels.where((l) => _tier12Ids.contains(l.id)).length;
+      final actualTier12Count = kLevels
+          .where((l) => _tier12Ids.contains(l.id))
+          .length;
       expect(actualTier12Count, 4);
     });
 
-    test('kLevelSections attributes tier 12 levels to "Tier 12 · Black Holes"',
-        () {
-      for (final id in _tier12Ids) {
-        expect(tierTitleForLevel(id), 'Tier 12 · Black Holes', reason: id);
-      }
-    });
-
     test(
-        'black holes have positive radius/mass and stay within bounds, '
+      'kLevelSections attributes tier 12 levels to "Tier 12 · Black Holes"',
+      () {
+        for (final id in _tier12Ids) {
+          expect(tierTitleForLevel(id), 'Tier 12 · Black Holes', reason: id);
+        }
+      },
+    );
+
+    test('black holes have positive radius/mass and stay within bounds, '
         'with an in-bounds exit position', () {
       for (final level in kLevels) {
         for (final hole in level.blackHoles) {
@@ -368,25 +425,73 @@ void main() {
       }
     });
 
-    test(
-        'at least one tier 12 level has a black hole with a non-default '
+    test('at least one tier 12 level has a black hole with a non-default '
         'exitVelocityScale', () {
       final tier12Levels = kLevels.where((l) => _tier12Ids.contains(l.id));
       expect(
-        tier12Levels
-            .any((l) => l.blackHoles.any((h) => h.exitVelocityScale != 1.0)),
+        tier12Levels.any(
+          (l) => l.blackHoles.any((h) => h.exitVelocityScale != 1.0),
+        ),
         isTrue,
-        reason: 'expected at least one Tier 12 level to exercise a '
+        reason:
+            'expected at least one Tier 12 level to exercise a '
             'non-default exitVelocityScale',
       );
     });
 
-    test(
-        'every non-black-hole-tier level has an empty blackHoles list '
+    test('every non-black-hole-tier level has an empty blackHoles list '
         '(additive default holds)', () {
       for (final level in kLevels) {
         if (_tier12Ids.contains(level.id)) continue;
         expect(level.blackHoles, isEmpty, reason: level.id);
+      }
+    });
+
+    test('the naive straight shot from rocketStart to the primary target is '
+        'blocked by a real obstacle (planet, no-fly zone, or black hole), '
+        'unless explicitly allow-listed', () {
+      for (final level in kLevels) {
+        if (_directLineAllowList.contains(level.id)) continue;
+
+        final ax = level.rocketStart.x;
+        final ay = level.rocketStart.y;
+        final bx = level.targetPosition.x;
+        final by = level.targetPosition.y;
+
+        bool isBlockedBy(double ox, double oy, double radius) {
+          final distance = _distanceToSegment(ox, oy, ax, ay, bx, by);
+          return distance <= radius + _obstacleClearanceMargin;
+        }
+
+        final blocked =
+            level.planets.any(
+              (p) => isBlockedBy(p.position.x, p.position.y, p.radius),
+            ) ||
+            level.noFlyZones.any(
+              (z) => isBlockedBy(z.position.x, z.position.y, z.radius),
+            ) ||
+            level.blackHoles.any(
+              (h) => isBlockedBy(h.position.x, h.position.y, h.radius),
+            );
+
+        expect(
+          blocked,
+          isTrue,
+          reason:
+              '${level.id}: the straight rocketStart -> targetPosition '
+              'line has no obstacle within ${_obstacleClearanceMargin}px '
+              'of it — this level is a free direct shot',
+        );
+      }
+    });
+
+    // Sanity check on the allow-list itself: every allow-listed id must
+    // actually exist in kLevels, so a future rename/removal can't leave a
+    // stale, silently-ignored entry behind.
+    test('direct-line allow-list only references real level ids', () {
+      final ids = kLevels.map((l) => l.id).toSet();
+      for (final id in _directLineAllowList) {
+        expect(ids.contains(id), isTrue, reason: id);
       }
     });
   });
