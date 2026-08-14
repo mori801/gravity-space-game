@@ -7,6 +7,7 @@ import '../gravity_rocket_game.dart';
 import '../physics/gravity.dart';
 import '../physics/trajectory.dart';
 import '../physics/wind.dart';
+import 'black_hole.dart';
 import 'planet.dart';
 import 'wind_zone.dart';
 
@@ -19,10 +20,10 @@ class Rocket extends PositionComponent {
     required Vector2 position,
     required double initialFacingAngleRad,
     double? steerRangeRad,
-  })  : velocity = Vector2.zero(),
-        _facingAngleRad = initialFacingAngleRad,
-        _steerRangeRad = steerRangeRad,
-        super(position: position, size: Vector2.all(36), anchor: Anchor.center);
+  }) : velocity = Vector2.zero(),
+       _facingAngleRad = initialFacingAngleRad,
+       _steerRangeRad = steerRangeRad,
+       super(position: position, size: Vector2.all(36), anchor: Anchor.center);
 
   static const double _maxUpdateDt = 1 / 30;
 
@@ -213,9 +214,17 @@ class Rocket extends PositionComponent {
     previousPosition.setFrom(position);
 
     final planets = parent?.children.query<Planet>() ?? const <Planet>[];
+    final blackHoles =
+        parent?.children.query<BlackHole>() ?? const <BlackHole>[];
     final sources = [
       for (final planet in planets)
         GravitySource(position: planet.position, mass: planet.mass),
+      // Black holes contribute gravity exactly like planets — a very
+      // high mass is what makes the pull dramatic, not a different
+      // formula. See BlackHoleSpec for why the mass is so much higher
+      // than a normal planet's.
+      for (final hole in blackHoles)
+        GravitySource(position: hole.position, mass: hole.mass),
     ];
 
     final acceleration = gravitationalAcceleration(
@@ -303,8 +312,9 @@ class Rocket extends PositionComponent {
     // be redundant and misleadingly suggest a hard edge that doesn't
     // exist — the full ring already communicates "steer anywhere". Only
     // draw the two boundary ticks for a genuinely bounded arc.
-    final tickAngles =
-        range < math.pi ? [base - range, base, base + range] : [base];
+    final tickAngles = range < math.pi
+        ? [base - range, base, base + range]
+        : [base];
     for (final tickAngle in tickAngles) {
       final dir = Offset(math.cos(tickAngle), math.sin(tickAngle));
       canvas.drawLine(dir * (radius - 5), dir * (radius + 5), tickPaint);
@@ -358,15 +368,18 @@ class Rocket extends PositionComponent {
     final startVelocity = Vector2(math.cos(angle), math.sin(angle))
       ..scale(speed);
 
-    final planets =
-        (parent?.children.query<Planet>() ?? const <Planet>[]).toList();
-    final windZones =
-        (parent?.children.query<WindZone>() ?? const <WindZone>[]).toList();
+    final planets = (parent?.children.query<Planet>() ?? const <Planet>[])
+        .toList();
+    final blackHoles =
+        (parent?.children.query<BlackHole>() ?? const <BlackHole>[]).toList();
+    final windZones = (parent?.children.query<WindZone>() ?? const <WindZone>[])
+        .toList();
 
     final points = simulateTrajectory(
       startPosition: position,
       startVelocity: startVelocity,
       planets: planets,
+      blackHoles: blackHoles,
       windZones: windZones,
       dt: _previewDt,
       steps: _previewSteps,

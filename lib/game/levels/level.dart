@@ -79,6 +79,51 @@ class WormholeSpec {
   final double radius;
 }
 
+/// An extreme gravity well the rocket can be funneled into and re-emerge
+/// from elsewhere — portal-like, but distinct from [WormholeSpec] in two
+/// ways: it actively pulls the rocket in with a very high [mass] (several
+/// times a normal planet's, so the approach itself is the puzzle, not a
+/// pixel-perfect thread), and capture only requires reaching [radius] (the
+/// event horizon) rather than precisely overlapping a specific spot.
+///
+/// [exitVelocityScale] (default 1.0, i.e. speed unchanged) is a multiplier
+/// applied to the rocket's speed on exit, direction preserved — see the
+/// design note on `GravityRocketGame._checkBlackHoleCapture` for why the
+/// exit deliberately carries the incoming velocity forward instead of
+/// resetting it or firing along a fixed direction.
+class BlackHoleSpec {
+  const BlackHoleSpec({
+    required this.position,
+    required this.radius,
+    required this.mass,
+    required this.exitPosition,
+    this.exitVelocityScale = 1.0,
+  });
+
+  final Vector2 position;
+
+  /// Event-horizon / capture radius. Kept small (tens of pixels) relative
+  /// to [mass]'s reach so "getting pulled in" reads as a gradual funnel
+  /// the player must aim into, not an instant snap the moment the hole is
+  /// merely nearby.
+  final double radius;
+
+  /// Gravitational mass — see `physics/gravity.dart`. Always well above a
+  /// normal planet's (2000-3400) so the pull is dramatic and readable from
+  /// a distance; always positive (a black hole always attracts, never
+  /// repels).
+  final double mass;
+
+  /// Where the rocket re-emerges after capture.
+  final Vector2 exitPosition;
+
+  /// Multiplier applied to the rocket's speed on exit (direction
+  /// unchanged). 1.0 (the default) hands the exact incoming speed back;
+  /// level authors can raise or lower it for a slingshot-boost or a
+  /// slow-crawl exit.
+  final double exitVelocityScale;
+}
+
 /// A static circular no-fly zone placed in a level: purely an exclusion
 /// zone (no gravity, no level-configurable visual — see [NoFlyZone]) that
 /// ends the run if the rocket's flight path crosses it.
@@ -138,6 +183,7 @@ class LevelData {
     this.maxShots,
     this.windZones = const <WindZoneSpec>[],
     this.ordered = false,
+    this.blackHoles = const <BlackHoleSpec>[],
   });
 
   final String id;
@@ -179,9 +225,9 @@ class LevelData {
   /// this list's order IS the required visiting order — index 0 first,
   /// then index 1, and so on.
   List<TargetSpec> get targets => [
-        TargetSpec(position: targetPosition, radius: targetRadius),
-        ...additionalTargets,
-      ];
+    TargetSpec(position: targetPosition, radius: targetRadius),
+    ...additionalTargets,
+  ];
 
   /// Static circular exclusion zones; the rocket's flight path crossing
   /// one ends the run in a loss. Optional — defaults to none, so existing
@@ -211,4 +257,8 @@ class LevelData {
   /// [targets] list order — index 0 is the primary target, index 1 is
   /// additionalTargets[0], index 2 is additionalTargets[1], etc.
   final bool ordered;
+
+  /// Black holes in this level — see [BlackHoleSpec]. Optional — defaults
+  /// to none, so every existing level is completely unaffected.
+  final List<BlackHoleSpec> blackHoles;
 }

@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 
+import 'components/black_hole.dart';
 import 'components/no_fly_zone.dart';
 import 'components/planet.dart';
 import 'components/rocket.dart';
@@ -74,6 +75,20 @@ class GravityRocketGame extends FlameGame {
   /// on the very next frame) before it has flown clear.
   double _wormholeCooldown = 0;
   static const double _wormholeCooldownSeconds = 0.3;
+
+  /// All black holes in [level] (see [LevelData.blackHoles]). Kept
+  /// separately from the `world.children.query<BlackHole>()` [Rocket]
+  /// itself uses for live gravity so this list can be removed/rebuilt in
+  /// [loadLevel] the same way [_wormholePairs] is.
+  late List<BlackHole> _blackHoles;
+
+  /// Counts down after a black hole capture so the rocket can't
+  /// immediately fall back into its own (or another) event horizon on the
+  /// very next frame before it has flown clear — mirrors
+  /// [_wormholeCooldown]/[_wormholeCooldownSeconds] exactly; see
+  /// [_checkBlackHoleCapture].
+  double _blackHoleCooldown = 0;
+  static const double _blackHoleCooldownSeconds = 0.3;
 
   /// The `power`/`angleOffset` most recently passed to [launch], remembered
   /// so [retrySameShot] can repeat an attempt exactly without the player
@@ -150,14 +165,25 @@ class GravityRocketGame extends FlameGame {
     _hitTargetIndices.clear();
     _updateTargetActivity();
 
-    _wormholePairs = [
-      for (final spec in level.wormholes) WormholePair(spec),
-    ];
+    _wormholePairs = [for (final spec in level.wormholes) WormholePair(spec)];
     for (final pair in _wormholePairs) {
       world.add(pair.endA);
       world.add(pair.endB);
     }
     _wormholeCooldown = 0;
+
+    _blackHoles = [
+      for (final spec in level.blackHoles)
+        BlackHole(
+          position: spec.position,
+          radius: spec.radius,
+          mass: spec.mass,
+        ),
+    ];
+    for (final hole in _blackHoles) {
+      world.add(hole);
+    }
+    _blackHoleCooldown = 0;
 
     rocket = Rocket(
       position: level.rocketStart.clone(),
@@ -183,6 +209,9 @@ class GravityRocketGame extends FlameGame {
     for (final pair in _wormholePairs) {
       world.remove(pair.endA);
       world.remove(pair.endB);
+    }
+    for (final hole in _blackHoles) {
+      world.remove(hole);
     }
 
     level = newLevel;
@@ -228,9 +257,11 @@ class GravityRocketGame extends FlameGame {
     final clampedPower = power.clamp(0.0, 1.0);
     final clampedAngleOffset = angleOffset.clamp(-1.0, 1.0);
 
-    final speed = level.minLaunchSpeed +
+    final speed =
+        level.minLaunchSpeed +
         (level.maxLaunchSpeed - level.minLaunchSpeed) * clampedPower;
-    final angleDeg = level.baseLaunchAngleDeg +
+    final angleDeg =
+        level.baseLaunchAngleDeg +
         clampedAngleOffset * level.launchAngleRangeDeg;
     final angleRad = _degToRad(angleDeg);
 
@@ -260,6 +291,7 @@ class GravityRocketGame extends FlameGame {
     _hitTargetIndices.clear();
     _updateTargetActivity();
     _wormholeCooldown = 0;
+    _blackHoleCooldown = 0;
     overlays.remove('WinOverlay');
     overlays.remove('LoseOverlay');
     overlays.remove('GameCompleteOverlay');
@@ -299,6 +331,12 @@ class GravityRocketGame extends FlameGame {
       _wormholeCooldown -= dt;
     } else {
       _checkWormholeTeleport();
+    }
+
+    if (_blackHoleCooldown > 0) {
+      _blackHoleCooldown -= dt;
+    } else {
+      _checkBlackHoleCapture();
     }
 
     if (_hasCrashed()) {
@@ -374,6 +412,44 @@ class GravityRocketGame extends FlameGame {
       )) {
         rocket.teleport(pair.endA.position);
         _wormholeCooldown = _wormholeCooldownSeconds;
+        return;
+      }
+    }
+  }
+
+  /// Checks whether the rocket's most recent movement segment (see
+  /// [Rocket.previousPosition]) crossed into a black hole's event horizon
+  /// ([BlackHoleSpec.radius]), and if so teleports it to
+  /// [BlackHoleSpec.exitPosition] and starts [_blackHoleCooldown] so it
+  /// can't immediately fall back in on the very next frame — mirrors
+  /// [_checkWormholeTeleport] exactly, including using the segment (not
+  /// just the current point) so a fast-moving rocket close to a very
+  /// strong gravity source can't tunnel past the event horizon between
+  /// two frames.
+  ///
+  /// Design decision: the exit **preserves the rocket's incoming velocity
+  /// direction and magnitude**, scaled by [BlackHoleSpec.exitVelocityScale]
+  /// (default 1.0, i.e. unchanged). Ejecting at rest would remove the
+  /// approach from the puzzle entirely (any entry angle/speed would do,
+  /// since the black hole always resets you to a standing start); firing
+  /// along a fixed exit direction would remove aiming skill from the exit
+  /// half of the shot and effectively auto-solve it. Carrying the vector
+  /// through instead makes the *approach* the thing the player plans
+  /// around — how fast and from what angle they enter the event horizon
+  /// directly determines what comes out the other side — which matches
+  /// this game's stated philosophy that skill means precision and
+  /// planning, not reflexes or timing.
+  void _checkBlackHoleCapture() {
+    for (final spec in level.blackHoles) {
+      if (segmentIntersectsCircle(
+        start: rocket.previousPosition,
+        end: rocket.position,
+        center: spec.position,
+        radius: spec.radius,
+      )) {
+        rocket.teleport(spec.exitPosition);
+        rocket.velocity.scale(spec.exitVelocityScale);
+        _blackHoleCooldown = _blackHoleCooldownSeconds;
         return;
       }
     }
