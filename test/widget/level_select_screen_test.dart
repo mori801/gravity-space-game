@@ -79,4 +79,20 @@ void main() {
     expect(sectionHeader, findsOneWidget);
     expect(find.text('First, Then'), findsOneWidget);
   });
+
+  testWidgets('Tier 12 · Black Holes section renders with its first level',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: LevelSelectScreen()));
+    await tester.pumpAndSettle();
+
+    final sectionHeader = find.text('Tier 12 · Black Holes');
+    await tester.scrollUntilVisible(
+      sectionHeader,
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(sectionHeader, findsOneWidget);
+    expect(find.text('Event Horizon'), findsOneWidget);
+  });
 }

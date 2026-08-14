@@ -18,6 +18,13 @@ const _tier11Ids = [
   'sequence-gauntlet-loop',
 ];
 
+const _tier12Ids = [
+  'black-hole-intro',
+  'black-hole-flyby',
+  'black-hole-corridor',
+  'black-hole-gauntlet',
+];
+
 void main() {
   group('kLevels', () {
     test('has unique ids', () {
@@ -137,6 +144,11 @@ void main() {
         isTrue,
         reason: 'expected at least one multi-target level',
       );
+      expect(
+        kLevels.any((l) => l.blackHoles.isNotEmpty),
+        isTrue,
+        reason: 'expected at least one level with a black hole',
+      );
     });
 
     test(
@@ -181,8 +193,8 @@ void main() {
       }
     });
 
-    test('kLevels has 60 levels total', () {
-      expect(kLevels.length, 60);
+    test('kLevels has 64 levels total', () {
+      expect(kLevels.length, 64);
     });
 
     test('tier 7 levels combine no-fly zones with a maxShots budget', () {
@@ -309,6 +321,72 @@ void main() {
         } else {
           expect(level.ordered, isFalse, reason: level.id);
         }
+      }
+    });
+
+    test('tier 12 has exactly the 4 black hole levels', () {
+      for (final id in _tier12Ids) {
+        final level = kLevels.firstWhere(
+          (l) => l.id == id,
+          orElse: () => throw StateError('missing $id'),
+        );
+        expect(level.id, id);
+      }
+      final actualTier12Count =
+          kLevels.where((l) => _tier12Ids.contains(l.id)).length;
+      expect(actualTier12Count, 4);
+    });
+
+    test('kLevelSections attributes tier 12 levels to "Tier 12 · Black Holes"',
+        () {
+      for (final id in _tier12Ids) {
+        expect(tierTitleForLevel(id), 'Tier 12 · Black Holes', reason: id);
+      }
+    });
+
+    test(
+        'black holes have positive radius/mass and stay within bounds, '
+        'with an in-bounds exit position', () {
+      for (final level in kLevels) {
+        for (final hole in level.blackHoles) {
+          expect(hole.radius, greaterThan(0), reason: level.id);
+          expect(hole.mass, greaterThan(0), reason: level.id);
+          expect(
+            level.playBounds.contains(Offset(hole.position.x, hole.position.y)),
+            isTrue,
+            reason: level.id,
+          );
+          expect(
+            level.playBounds.contains(
+              Offset(hole.exitPosition.x, hole.exitPosition.y),
+            ),
+            isTrue,
+            reason: level.id,
+          );
+          expect(hole.exitVelocityScale, greaterThan(0), reason: level.id);
+        }
+      }
+    });
+
+    test(
+        'at least one tier 12 level has a black hole with a non-default '
+        'exitVelocityScale', () {
+      final tier12Levels = kLevels.where((l) => _tier12Ids.contains(l.id));
+      expect(
+        tier12Levels
+            .any((l) => l.blackHoles.any((h) => h.exitVelocityScale != 1.0)),
+        isTrue,
+        reason: 'expected at least one Tier 12 level to exercise a '
+            'non-default exitVelocityScale',
+      );
+    });
+
+    test(
+        'every non-black-hole-tier level has an empty blackHoles list '
+        '(additive default holds)', () {
+      for (final level in kLevels) {
+        if (_tier12Ids.contains(level.id)) continue;
+        expect(level.blackHoles, isEmpty, reason: level.id);
       }
     });
   });

@@ -844,6 +844,152 @@ final LevelData _sequenceGauntletLoop = LevelData(
   playBounds: const Rect.fromLTWH(0, 0, 950, 1300),
 );
 
+final LevelData _blackHoleIntro = LevelData(
+  id: 'black-hole-intro',
+  name: 'Event Horizon',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 520,
+  // No planets: nothing else to plan around yet — just aim into the hole
+  // and see what "portal, not planet" means. Its own gravity is strong
+  // enough on its own to bend a wide range of approach angles toward it.
+  planets: const [],
+  blackHoles: [
+    BlackHoleSpec(
+      position: Vector2(450, 650),
+      radius: 34,
+      mass: 11000,
+      exitPosition: Vector2(760, 200),
+      // Slowed on exit so the sudden re-emergence right next to the
+      // target reads as a gentle arrival, not an overshoot — this is the
+      // one level in the tier that leans on exitVelocityScale to make the
+      // very first capture forgiving.
+      exitVelocityScale: 0.5,
+    ),
+  ],
+  targetPosition: Vector2(770, 190),
+  targetRadius: 70,
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _blackHoleFlyby = LevelData(
+  id: 'black-hole-flyby',
+  name: 'Flyby',
+  rocketStart: Vector2(450, 1230),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 230,
+  maxLaunchSpeed: 540,
+  // A planet now shares the sky with the hole — the player has to decide
+  // whether to swing past it for a gravity assist into the hole, or steer
+  // wide of it entirely. Unlike the intro, the exit hands the incoming
+  // velocity straight back (scale 1.0): how fast and from what angle the
+  // hole is entered now directly shapes the shot that comes out the other
+  // side.
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 750),
+      mass: 2600,
+      radius: 50,
+      color: const Color(0xFFFF9142),
+    ),
+  ],
+  blackHoles: [
+    BlackHoleSpec(
+      position: Vector2(700, 450),
+      radius: 32,
+      mass: 10000,
+      exitPosition: Vector2(200, 180),
+    ),
+  ],
+  targetPosition: Vector2(150, 150),
+  targetRadius: 65,
+  playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
+);
+
+final LevelData _blackHoleCorridor = LevelData(
+  id: 'black-hole-corridor',
+  name: 'Tight Corridor',
+  rocketStart: Vector2(475, 1330),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 230,
+  maxLaunchSpeed: 540,
+  // A no-fly zone now sits squarely on the naive straight shot up toward
+  // the target, so a player who ignores the hole has to route carefully
+  // around it (or slingshot off the planet). Diving into the hole instead
+  // sidesteps the corridor entirely and re-emerges past it — but the exit
+  // is boosted (scale 1.4) precisely because the hole's own gravity keeps
+  // pulling after the teleport, and a slow exit would just fall straight
+  // back in.
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 850),
+      mass: 2400,
+      radius: 48,
+      color: const Color(0xFF4CE0B3),
+    ),
+  ],
+  blackHoles: [
+    BlackHoleSpec(
+      position: Vector2(650, 700),
+      radius: 40,
+      mass: 11000,
+      exitPosition: Vector2(350, 320),
+      exitVelocityScale: 1.4,
+    ),
+  ],
+  noFlyZones: [NoFlyZoneSpec(position: Vector2(620, 550), radius: 80)],
+  targetPosition: Vector2(700, 150),
+  targetRadius: 70,
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1400),
+);
+
+final LevelData _blackHoleGauntlet = LevelData(
+  id: 'black-hole-gauntlet',
+  name: 'Singularity Gauntlet',
+  rocketStart: Vector2(475, 1380),
+  baseLaunchAngleDeg: _straightUpDeg,
+  launchAngleRangeDeg: 90,
+  minLaunchSpeed: 220,
+  maxLaunchSpeed: 560,
+  // The capstone: a planet to route around, a wind zone drifting the
+  // approach sideways, and a hole with a boosted (1.3x) exit — every
+  // earlier lesson in this tier (planning the approach, respecting the
+  // hole's lingering pull after exit, reading a non-gravity force) has to
+  // come together to land the exit on the target.
+  planets: [
+    PlanetSpec(
+      position: Vector2(300, 900),
+      mass: 2800,
+      radius: 52,
+      color: const Color(0xFFFF6584),
+    ),
+  ],
+  windZones: [
+    WindZoneSpec(
+      position: Vector2(650, 700),
+      radius: 140,
+      forceDirectionDeg: 0,
+      forceMagnitude: 130,
+    ),
+  ],
+  blackHoles: [
+    BlackHoleSpec(
+      position: Vector2(600, 450),
+      radius: 30,
+      mass: 12000,
+      exitPosition: Vector2(250, 200),
+      exitVelocityScale: 1.3,
+    ),
+  ],
+  targetPosition: Vector2(200, 150),
+  targetRadius: 55,
+  playBounds: const Rect.fromLTWH(0, 0, 950, 1450),
+);
+
 /// The full level roster: 3 hand-tuned levels teaching the mechanic, then
 /// 25 procedurally-generated levels of increasing difficulty (5 tiers of
 /// 1-5 planets), then 8 tier-6 levels adding no-fly zone hazards, then 8
@@ -858,8 +1004,16 @@ final LevelData _sequenceGauntletLoop = LevelData(
 /// list order — primary target, then additionalTargets in sequence;
 /// hitting a later target early simply doesn't register yet), ramping
 /// from an isolated two-target intro up through a there-and-back relay,
-/// an orbiting-planet timing puzzle, and a symmetric-decoy gauntlet (60
-/// levels, 12 tiers total including the tutorial).
+/// an orbiting-planet timing puzzle, and a symmetric-decoy gauntlet, then
+/// 4 hand-tuned levels introducing black holes (an extreme, high-mass
+/// gravity well the rocket is funneled into and re-emerges from
+/// elsewhere — portal-like, but unlike a wormhole it actively pulls the
+/// rocket in and the puzzle is managing the approach/exit vector rather
+/// than precise aim), ramping from an isolated capture-and-arrive intro,
+/// through combining it with a planet to slingshot past, then a no-fly
+/// zone blocking the naive direct route, up to a capstone combining a
+/// planet, a wind zone, and a boosted exit (64 levels, 13 tiers total
+/// including the tutorial).
 final List<LevelData> kLevels = [
   _firstOrbit,
   _slingshot,
@@ -879,6 +1033,10 @@ final List<LevelData> kLevels = [
   _sequenceSlingshotRelay,
   _sequenceOrbitalCheckpoints,
   _sequenceGauntletLoop,
+  _blackHoleIntro,
+  _blackHoleFlyby,
+  _blackHoleCorridor,
+  _blackHoleGauntlet,
 ];
 
 /// Describes one named, contiguous section of [kLevels] for level-select
@@ -940,6 +1098,15 @@ final List<LevelSection> kLevelSections = [
       _sequenceSlingshotRelay,
       _sequenceOrbitalCheckpoints,
       _sequenceGauntletLoop,
+    ],
+  ),
+  LevelSection(
+    title: 'Tier 12 · Black Holes',
+    levels: [
+      _blackHoleIntro,
+      _blackHoleFlyby,
+      _blackHoleCorridor,
+      _blackHoleGauntlet,
     ],
   ),
 ];
