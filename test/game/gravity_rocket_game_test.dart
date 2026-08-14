@@ -60,6 +60,25 @@ void main() {
     );
 
     testWithGame<GravityRocketGame>(
+      'rocket.launched flips from false to true on launch, gating the '
+      'pre-launch steer guide and trajectory preview',
+      () => _testGame(kLevels.first),
+      (game) async {
+        await game.ready();
+
+        // `Rocket.launched` is the exact flag `render()` gates both the
+        // steer-guide arc and the trajectory-preview line on (both only
+        // draw while `!launched`) — this asserts the flag itself flips at
+        // the right time, without inspecting any pixels.
+        expect(game.rocket.launched, isFalse);
+
+        game.launch(power: 0.5, angleOffset: 0);
+
+        expect(game.rocket.launched, isTrue);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
       'reaching the target wins the level',
       () => _testGame(kLevels.first),
       (game) async {

@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
+import '../gravity_rocket_game.dart';
 import '../physics/gravity.dart';
+import '../physics/trajectory.dart';
 import '../physics/wind.dart';
 import 'planet.dart';
 import 'wind_zone.dart';
@@ -20,11 +22,7 @@ class Rocket extends PositionComponent {
   })  : velocity = Vector2.zero(),
         _facingAngleRad = initialFacingAngleRad,
         _steerRangeRad = steerRangeRad,
-        super(
-          position: position,
-          size: Vector2.all(36),
-          anchor: Anchor.center,
-        );
+        super(position: position, size: Vector2.all(36), anchor: Anchor.center);
 
   static const double _maxUpdateDt = 1 / 30;
 
@@ -197,8 +195,10 @@ class Rocket extends PositionComponent {
     _time += dt;
 
     if (_aimOpacity > _aimRestingOpacity) {
-      _aimOpacity =
-          (_aimOpacity - dt / _aimFadeDuration).clamp(_aimRestingOpacity, 1.0);
+      _aimOpacity = (_aimOpacity - dt / _aimFadeDuration).clamp(
+        _aimRestingOpacity,
+        1.0,
+      );
     }
 
     if (_launchPulseT < _launchPulseDuration) {
@@ -252,6 +252,7 @@ class Rocket extends PositionComponent {
     _renderLaunchPulse(canvas);
     if (!launched) {
       _renderSteerGuide(canvas);
+      _renderTrajectoryPreview(canvas);
     }
     _renderAim(canvas);
     _renderBody(canvas);
@@ -307,6 +308,90 @@ class Rocket extends PositionComponent {
     for (final tickAngle in tickAngles) {
       final dir = Offset(math.cos(tickAngle), math.sin(tickAngle));
       canvas.drawLine(dir * (radius - 5), dir * (radius + 5), tickPaint);
+    }
+  }
+
+  /// Fallback launch-speed range used only if this rocket somehow isn't
+  /// parented under a [GravityRocketGame] (e.g. a bare unit test) when
+  /// [_renderTrajectoryPreview] runs, so the preview still draws something
+  /// plausible instead of crashing. In the real app [findGame] always
+  /// resolves to the owning [GravityRocketGame], whose `level.minLaunchSpeed`
+  /// / `level.maxLaunchSpeed` are used instead — see [_renderTrajectoryPreview].
+  static const double _fallbackMinLaunchSpeed = 200;
+  static const double _fallbackMaxLaunchSpeed = 500;
+
+  /// How many seconds of flight the preview forecasts, and at what
+  /// resolution. Purely a rendering/perf tradeoff — three seconds at 60
+  /// simulated steps/second is enough to read the shape of most shots in
+  /// `levels.dart` without spending too much time re-simulating every frame
+  /// while the player is still aiming.
+  static const double _previewDt = 1 / 60;
+  static const int _previewSteps = 180;
+
+  /// Faded dashed line forecasting the flight path the rocket would take
+  /// if launched right now with the current aim angle ([_aimAngleRad]) and
+  /// charge ([_chargePower]) — a pure planning aid, no gameplay effect.
+  /// Only shown pre-launch, gated by the exact same `!launched` condition
+  /// [_renderSteerGuide] is gated by in [render] (see the call site), so
+  /// the two can never drift out of sync with each other.
+  ///
+  /// Mirrors two things exactly so the preview matches the real shot:
+  ///  - the speed/angle formula `GravityRocketGame.launch` uses to turn
+  ///    aim + charge into an initial velocity (recovering
+  ///    `level.minLaunchSpeed`/`maxLaunchSpeed` via [findGame] since the
+  ///    rocket itself doesn't otherwise hold a reference to the level);
+  ///  - the same live gravity/wind source lookup [update] uses each frame
+  ///    (`parent?.children.query<Planet>()` / `query<WindZone>()`), so the
+  ///    preview is pulled by the same planets/wind the real flight will be.
+  void _renderTrajectoryPreview(Canvas canvas) {
+    final angle = _aimAngleRad;
+    if (angle == null) {
+      return;
+    }
+
+    final game = findGame();
+    final level = game is GravityRocketGame ? game.level : null;
+    final minSpeed = level?.minLaunchSpeed ?? _fallbackMinLaunchSpeed;
+    final maxSpeed = level?.maxLaunchSpeed ?? _fallbackMaxLaunchSpeed;
+    final speed = minSpeed + (maxSpeed - minSpeed) * _chargePower;
+
+    final startVelocity = Vector2(math.cos(angle), math.sin(angle))
+      ..scale(speed);
+
+    final planets =
+        (parent?.children.query<Planet>() ?? const <Planet>[]).toList();
+    final windZones =
+        (parent?.children.query<WindZone>() ?? const <WindZone>[]).toList();
+
+    final points = simulateTrajectory(
+      startPosition: position,
+      startVelocity: startVelocity,
+      planets: planets,
+      windZones: windZones,
+      dt: _previewDt,
+      steps: _previewSteps,
+    );
+
+    final paint = Paint()
+      ..strokeWidth = 1.75
+      ..strokeCap = StrokeCap.round;
+
+    final segmentCount = points.length - 1;
+    for (var i = 0; i < segmentCount; i++) {
+      // Skip every other segment for a dashed look, cheaper than tracking
+      // sub-segment dash phase since each simulated step is already a
+      // small, roughly-even-length hop.
+      if (i.isOdd) {
+        continue;
+      }
+
+      final t = segmentCount <= 1 ? 0.0 : i / (segmentCount - 1);
+      final opacity = 0.5 + (0.05 - 0.5) * t;
+
+      final start = points[i] - position;
+      final end = points[i + 1] - position;
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawLine(Offset(start.x, start.y), Offset(end.x, end.y), paint);
     }
   }
 
@@ -384,9 +469,13 @@ class Rocket extends PositionComponent {
     final headPath = Path()
       ..moveTo(end.dx, end.dy)
       ..lineTo(
-          (headBase + perp * headWidth).dx, (headBase + perp * headWidth).dy)
+        (headBase + perp * headWidth).dx,
+        (headBase + perp * headWidth).dy,
+      )
       ..lineTo(
-          (headBase - perp * headWidth).dx, (headBase - perp * headWidth).dy)
+        (headBase - perp * headWidth).dx,
+        (headBase - perp * headWidth).dy,
+      )
       ..close();
 
     canvas.drawPath(
@@ -398,7 +487,9 @@ class Rocket extends PositionComponent {
         ..strokeJoin = StrokeJoin.round,
     );
     canvas.drawPath(
-        headPath, Paint()..color = _aimColor.withOpacity(displayOpacity));
+      headPath,
+      Paint()..color = _aimColor.withOpacity(displayOpacity),
+    );
   }
 
   /// A quick expanding-and-fading ring centered on the rocket, fired once
@@ -500,10 +591,7 @@ class Rocket extends PositionComponent {
       final worldPoint = _trail[i];
       final localPoint = worldPoint - position;
       final distanceFromEnd = _trail.length - 1 - i;
-      final recency = (1 - distanceFromEnd / _trailFadeWindow).clamp(
-        0.0,
-        1.0,
-      );
+      final recency = (1 - distanceFromEnd / _trailFadeWindow).clamp(0.0, 1.0);
       final opacity = 0.18 + recency * 0.35;
       _trailPaint.color = _trailPaint.color.withOpacity(opacity);
       canvas.drawCircle(
