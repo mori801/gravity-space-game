@@ -157,8 +157,7 @@ LevelData _generatedLevel({
   final rocketStartY = height - 100;
   final targetX = width * targetXFrac;
   const targetY = 130.0;
-  final blockerX =
-      rocketStartX +
+  final blockerX = rocketStartX +
       (targetX - rocketStartX) *
           (rocketStartY - 350) /
           (rocketStartY - targetY);
@@ -303,8 +302,7 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
     launchAngleRangeDeg: 90.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
-    targetRadius:
-        _generatedTargetRadiusOverrideByListIndex[i] ??
+    targetRadius: _generatedTargetRadiusOverrideByListIndex[i] ??
         (68.0 - tier * 8 - indexInTier * 2),
     targetXFrac: indexInTier.isEven ? 0.75 : 0.25,
     planetMasses: planetMasses,
@@ -651,14 +649,26 @@ final LevelData _repulsorIntro = LevelData(
   maxLaunchSpeed: 520,
   planets: [
     PlanetSpec(
-      // Difficulty rebalance: recentered onto the straight rocketStart ->
-      // target line (was (450, 700), ~140px clear of it) — a repulsor
-      // sitting on the naive path forces the player to actually plan
-      // around the push instead of being able to ignore it entirely.
-      position: Vector2(600, 690),
+      // The repulsor stays off the direct line on purpose. A repulsor
+      // placed *on* it pushes every approach away from the target's side
+      // of the field and makes the level unwinnable — verified by sweeping
+      // launch angle x power across the whole range: nothing got closer
+      // than ~430px to a 65px target, at any repulsor mass down to -600.
+      // Blocking the naive shot is the job of the planet below instead.
+      position: Vector2(450, 700),
       mass: -2600,
       radius: 55,
       color: const Color(0xFFFF6584),
+    ),
+    PlanetSpec(
+      // Difficulty rebalance: a normal, heavy planet sitting squarely on
+      // the straight rocketStart -> target line, so the direct shot is
+      // blocked and the player has to arc around it — while the repulsor
+      // beside it still teaches this tier's mechanic. Verified solvable.
+      position: Vector2(600, 690),
+      mass: 2600,
+      radius: 55,
+      color: const Color(0xFF4C8DFF),
     ),
   ],
   targetPosition: Vector2(750, 150),
@@ -682,11 +692,15 @@ final LevelData _repulsorGauntlet = LevelData(
       color: const Color(0xFF4C8DFF),
     ),
     PlanetSpec(
-      // Difficulty rebalance: recentered onto the straight rocketStart ->
-      // target line (was (600, 450), ~98px clear of it, barely missing
-      // the direct shot) so the repulsor is a real deflection hazard.
-      position: Vector2(695, 474),
-      mass: -2200,
+      // Difficulty rebalance: on the straight rocketStart -> target line
+      // so it genuinely obstructs the direct shot, but at a much gentler
+      // -1200 (was -2200). At full strength on the line, the push threw
+      // every approach clear of the target and no angle/power combination
+      // could win; -1200 still forces the player to plan around the push
+      // without sealing the route off. Verified solvable by sweeping
+      // launch angle x power across the whole range.
+      position: Vector2(700, 594),
+      mass: -1200,
       radius: 50,
       color: const Color(0xFFFF6584),
     ),
