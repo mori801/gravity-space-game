@@ -20,10 +20,10 @@ class Rocket extends PositionComponent {
     required Vector2 position,
     required double initialFacingAngleRad,
     double? steerRangeRad,
-  }) : velocity = Vector2.zero(),
-       _facingAngleRad = initialFacingAngleRad,
-       _steerRangeRad = steerRangeRad,
-       super(position: position, size: Vector2.all(36), anchor: Anchor.center);
+  })  : velocity = Vector2.zero(),
+        _facingAngleRad = initialFacingAngleRad,
+        _steerRangeRad = steerRangeRad,
+        super(position: position, size: Vector2.all(36), anchor: Anchor.center);
 
   static const double _maxUpdateDt = 1 / 30;
 
@@ -312,9 +312,8 @@ class Rocket extends PositionComponent {
     // be redundant and misleadingly suggest a hard edge that doesn't
     // exist — the full ring already communicates "steer anywhere". Only
     // draw the two boundary ticks for a genuinely bounded arc.
-    final tickAngles = range < math.pi
-        ? [base - range, base, base + range]
-        : [base];
+    final tickAngles =
+        range < math.pi ? [base - range, base, base + range] : [base];
     for (final tickAngle in tickAngles) {
       final dir = Offset(math.cos(tickAngle), math.sin(tickAngle));
       canvas.drawLine(dir * (radius - 5), dir * (radius + 5), tickPaint);
@@ -330,13 +329,49 @@ class Rocket extends PositionComponent {
   static const double _fallbackMinLaunchSpeed = 200;
   static const double _fallbackMaxLaunchSpeed = 500;
 
-  /// How many seconds of flight the preview forecasts, and at what
-  /// resolution. Purely a rendering/perf tradeoff — three seconds at 60
-  /// simulated steps/second is enough to read the shape of most shots in
-  /// `levels.dart` without spending too much time re-simulating every frame
-  /// while the player is still aiming.
+  /// Integration resolution for the preview. Kept small (same as the real
+  /// flight's dt) so the curve's shape — how sharply the nearest planet
+  /// bends it — stays accurate even though the preview is cut short well
+  /// before the real flight would be (see [_previewMaxPathLength]).
   static const double _previewDt = 1 / 60;
-  static const int _previewSteps = 180;
+
+  /// Path-length budget for the preview, in world units: the forecast stops
+  /// appending points once the cumulative length of the sampled polyline
+  /// would exceed this, regardless of how many steps that took. A fixed
+  /// *step* count was the wrong knob — a fully-charged shot covers far more
+  /// ground per step than a barely-charged one, so the same step count
+  /// reveals wildly different amounts of the flight depending on charge
+  /// (including, on many levels, enough to see the shot land in the target
+  /// before firing). Capping by arc length instead shows a consistent
+  /// amount of curve regardless of speed.
+  ///
+  /// 200 world units is picked from the game's own scale: planets are
+  /// 40-60 units in radius, the target is ~55-58, and planets are placed
+  /// 220+ units apart on generated levels (see `levels.dart`). 200 units is
+  /// therefore a bit less than one planet-spacing — enough arc to read the
+  /// launch direction and how the nearest planet starts to bend it, but
+  /// nowhere near enough to reach a target or reveal the outcome.
+  static const double _previewMaxPathLength = 200;
+
+  /// Upper bound on integration steps for the preview. Must be large enough
+  /// that even the weakest possible shot (`level.minLaunchSpeed`, the
+  /// slowest a rocket can ever launch — 200 world units/sec is the lowest
+  /// value used across `levels.dart`, matching [_fallbackMinLaunchSpeed])
+  /// can still cover the full [_previewMaxPathLength] budget before running
+  /// out of steps, rather than stopping short because `steps` was
+  /// exhausted first (a slow shot travels less distance per step, so it
+  /// needs *more* steps than a fast one to rack up the same path length).
+  ///
+  /// At minimum speed and with no gravity/wind, each step covers
+  /// `minLaunchSpeed * dt` = `200 * (1/60)` ≈ 3.33 world units, so reaching
+  /// the 200-unit budget takes `200 / 3.33` = 60 steps. Gravity can slow a
+  /// shot down further (e.g. launched back toward a planet it started
+  /// near), shrinking the per-step distance and pushing that number up, so
+  /// this uses a 2x safety margin over the bare-minimum 60 steps. 180 was
+  /// the old fixed step count (3 real-time seconds at 60 steps/sec); 120 is
+  /// comfortably under that — cheaper to simulate — while still leaving
+  /// slow shots plenty of headroom to fill the budget.
+  static const int _previewSteps = 120;
 
   /// Faded dashed line forecasting the flight path the rocket would take
   /// if launched right now with the current aim angle ([_aimAngleRad]) and
@@ -368,12 +403,12 @@ class Rocket extends PositionComponent {
     final startVelocity = Vector2(math.cos(angle), math.sin(angle))
       ..scale(speed);
 
-    final planets = (parent?.children.query<Planet>() ?? const <Planet>[])
-        .toList();
+    final planets =
+        (parent?.children.query<Planet>() ?? const <Planet>[]).toList();
     final blackHoles =
         (parent?.children.query<BlackHole>() ?? const <BlackHole>[]).toList();
-    final windZones = (parent?.children.query<WindZone>() ?? const <WindZone>[])
-        .toList();
+    final windZones =
+        (parent?.children.query<WindZone>() ?? const <WindZone>[]).toList();
 
     final points = simulateTrajectory(
       startPosition: position,
@@ -383,6 +418,7 @@ class Rocket extends PositionComponent {
       windZones: windZones,
       dt: _previewDt,
       steps: _previewSteps,
+      maxPathLength: _previewMaxPathLength,
     );
 
     final paint = Paint()
