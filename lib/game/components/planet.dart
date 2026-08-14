@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
@@ -26,13 +28,13 @@ class Planet extends CircleComponent {
     required Color color,
     required this.isRepulsor,
     this.motion,
-  })  : _basePosition = position.clone(),
-        super(
-          position: position,
-          radius: radius,
-          anchor: Anchor.center,
-          paint: Paint()..color = color,
-        );
+  }) : _basePosition = position.clone(),
+       super(
+         position: position,
+         radius: radius,
+         anchor: Anchor.center,
+         paint: Paint()..color = color,
+       );
 
   final double mass;
 
@@ -46,6 +48,18 @@ class Planet extends CircleComponent {
   /// instead of staying at its spawn position. Null means static.
   final PlanetMotion? motion;
 
+  /// A derived, display-only radius used to draw a faint dashed "gravity
+  /// range" ring around the planet (see [render]) — a rough visual
+  /// heuristic for where this planet's pull starts to feel noticeable.
+  /// It is NOT a physics cutoff: `gravitationalAcceleration()` in
+  /// `game/physics/gravity.dart` is an unbounded inverse-square law, so
+  /// the rocket is always affected by every planet regardless of
+  /// distance. [mass.abs] is used so repulsors (negative [mass]) still
+  /// get a sane positive range, and the result is clamped so the ring
+  /// never grows large enough to dominate the level view.
+  double get gravityRangeRadius =>
+      (radius + math.sqrt(mass.abs()) * 2.0).clamp(0.0, 180.0);
+
   final Vector2 _basePosition;
   double _elapsed = 0;
 
@@ -56,7 +70,10 @@ class Planet extends CircleComponent {
     _elapsed += dt;
     position.setFrom(
       planetPositionAt(
-          basePosition: _basePosition, motion: motion, t: _elapsed),
+        basePosition: _basePosition,
+        motion: motion,
+        t: _elapsed,
+      ),
     );
   }
 
@@ -71,6 +88,7 @@ class Planet extends CircleComponent {
   @override
   void render(Canvas canvas) {
     final center = Offset(radius, radius);
+    _renderGravityRangeGuide(canvas, center);
     if (!isRepulsor) {
       canvas.drawCircle(center, radius, paint);
       return;
@@ -86,5 +104,30 @@ class Planet extends CircleComponent {
         ..style = PaintingStyle.stroke
         ..strokeWidth = radius * 0.22,
     );
+  }
+
+  /// Faint dashed circle at [gravityRangeRadius], drawn before the
+  /// planet's own disc/ring so the solid body always paints on top with
+  /// no z-fighting. Purely decorative — see [gravityRangeRadius] for why
+  /// this is a display heuristic, not a physics boundary.
+  void _renderGravityRangeGuide(Canvas canvas, Offset center) {
+    final rangeRadius = gravityRangeRadius;
+    final rect = Rect.fromCircle(center: center, radius: rangeRadius);
+
+    final guidePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..color = paint.color.withOpacity(0.18);
+
+    const dashCount = 28;
+    const sweep = 2 * math.pi;
+    final dashSweep = sweep / dashCount * 0.6;
+    final gapSweep = sweep / dashCount - dashSweep;
+    var angle = 0.0;
+    for (var i = 0; i < dashCount; i++) {
+      canvas.drawArc(rect, angle, dashSweep, false, guidePaint);
+      angle += dashSweep + gapSweep;
+    }
   }
 }
