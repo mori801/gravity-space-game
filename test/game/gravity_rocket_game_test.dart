@@ -52,10 +52,7 @@ void main() {
           game.update(1 / 60);
         }
 
-        expect(
-          (game.rocket.position - startPosition).length,
-          greaterThan(1.0),
-        );
+        expect((game.rocket.position - startPosition).length, greaterThan(1.0));
       },
     );
 
@@ -146,7 +143,9 @@ void main() {
 
         game.resetLevel();
         expect(
-            game.shotCount, 1); // loss/mid-run retry: count keeps accumulating
+          game.shotCount,
+          1,
+        ); // loss/mid-run retry: count keeps accumulating
 
         game.launch(power: 0.5, angleOffset: 0);
         expect(game.shotCount, 2);
@@ -184,16 +183,19 @@ void main() {
         game.launch(power: 1, angleOffset: 0);
         game.update(1 / 60);
         expect(game.status, GameStatus.lost);
-        expect(game.loseReason,
-            LoseReason.noFlyZone); // real reason, not overridden
+        expect(
+          game.loseReason,
+          LoseReason.noFlyZone,
+        ); // real reason, not overridden
         expect(game.shotCount, 1);
 
         game.resetLevel();
         expect(game.status, GameStatus.ready);
 
         game.launch(
-            power: 1,
-            angleOffset: 0); // refused: already used the 1 allowed shot
+          power: 1,
+          angleOffset: 0,
+        ); // refused: already used the 1 allowed shot
         expect(game.status, GameStatus.lost);
         expect(game.loseReason, LoseReason.outOfFuel);
         expect(game.shotCount, 1); // must not tick past maxShots
@@ -213,7 +215,9 @@ void main() {
           maxLaunchSpeed: 100,
           planets: const [],
           targetPosition: Vector2(
-              100, 100), // same as rocketStart so reaching it is instant
+            100,
+            100,
+          ), // same as rocketStart so reaching it is instant
           targetRadius: 20,
           playBounds: const Rect.fromLTWH(0, 0, 1000, 1000),
           maxShots: 1,
@@ -335,10 +339,7 @@ void main() {
         game.launch(power: 0, angleOffset: 0);
         game.update(1 / 60);
 
-        expect(
-          (game.rocket.position - Vector2(-300, 0)).length,
-          lessThan(1.0),
-        );
+        expect((game.rocket.position - Vector2(-300, 0)).length, lessThan(1.0));
       },
     );
 
@@ -398,8 +399,10 @@ void main() {
         expect(game.status, GameStatus.won);
         expect(LevelProgress.instance.isWon(kLevels.first.id), isTrue);
         expect(LevelProgress.instance.isWon(kLevels[1].id), isFalse);
-        expect(LevelProgress.instance.bestStars(kLevels.first.id),
-            starsForShotCount(game.shotCount));
+        expect(
+          LevelProgress.instance.bestStars(kLevels.first.id),
+          starsForShotCount(game.shotCount),
+        );
       },
     );
 
@@ -672,6 +675,44 @@ void main() {
         game.update(1 / 60);
 
         expect(game.nextRequiredTargetIndex, 1);
+      },
+    );
+
+    testWithGame<GravityRocketGame>(
+      'renders without throwing with both active and dimmed targets present',
+      () => _testGame(
+        LevelData(
+          id: 'test-render-targets',
+          name: 'Test Render Targets',
+          rocketStart: Vector2(0, 0),
+          baseLaunchAngleDeg: 0,
+          launchAngleRangeDeg: 10,
+          minLaunchSpeed: 100,
+          maxLaunchSpeed: 100,
+          planets: const [],
+          targetPosition: Vector2(100, 0),
+          targetRadius: 10,
+          additionalTargets: [
+            TargetSpec(position: Vector2(-100, 0), radius: 10),
+          ],
+          playBounds: const Rect.fromLTWH(-500, -500, 1000, 1000),
+          ordered: true,
+        ),
+      ),
+      (game) async {
+        await game.ready();
+
+        // Ordered level: target 0 starts active, target 1 starts dimmed —
+        // gives one active and one dimmed Target in the same render pass,
+        // so this exercises Target.render's fill+stroke two-pass drawing
+        // (see lib/game/components/target.dart) for both isActive states.
+        expect(game.targets[0].isActive, isTrue);
+        expect(game.targets[1].isActive, isFalse);
+
+        final recorder = PictureRecorder();
+        final canvas = Canvas(recorder);
+        expect(() => game.render(canvas), returnsNormally);
+        recorder.endRecording().dispose();
       },
     );
 
