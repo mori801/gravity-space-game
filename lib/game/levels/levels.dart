@@ -112,6 +112,20 @@ const List<Color> _planetPalette = [
 /// exceed ~60, offsets are always 220+), so no planet can ever overlap
 /// the rocket's start position, another planet, or the target purely by
 /// construction, without needing per-level manual distance checks.
+///
+/// Difficulty rebalance: planet 0 (the row nearest the target, at
+/// y = 350) is the exception to the row/alternation rule above — it's
+/// placed exactly on the straight line from [rocketStart] to the target
+/// instead of off to a fixed side (see the blocker-position calculation
+/// below), so every generated level has a real obstacle blocking the
+/// naive direct shot rather than an empty, unobstructed corridor. Planets
+/// 1+ keep the original alternating layout for gravity-assist variety
+/// and to give the player somewhere to plan a slingshot from. The
+/// vertical gap between row 0 (y=350) and every other row is always at
+/// least ~360px across every generated tier/level (checked by hand for
+/// the narrowest case: tier 5's 5-planet rows), comfortably clear of the
+/// 220+ planet-separation convention, so this doesn't reintroduce a
+/// planet/planet overlap risk.
 LevelData _generatedLevel({
   required String id,
   required String name,
@@ -133,13 +147,31 @@ LevelData _generatedLevel({
   final usableHeight = height - 550;
   final rowSpacing = planetCount > 1 ? usableHeight / (planetCount - 1) : 0.0;
 
+  // Blocker position for planet 0: the point on the straight line from
+  // rocketStart (width/2, height - 100) to the target (width * targetXFrac,
+  // 130) at y = 350 (planet 0's row). 350 always lies strictly between the
+  // target's y (130) and the rocket's start y (height - 100 >= 1100 for
+  // every generated level), so this is always a valid interpolation
+  // between two in-bounds points and the result is always in-bounds too.
+  final rocketStartX = width / 2;
+  final rocketStartY = height - 100;
+  final targetX = width * targetXFrac;
+  const targetY = 130.0;
+  final blockerX =
+      rocketStartX +
+      (targetX - rocketStartX) *
+          (rocketStartY - 350) /
+          (rocketStartY - targetY);
+
   final planets = <PlanetSpec>[
     for (var p = 0; p < planetCount; p++)
       PlanetSpec(
-        position: Vector2(
-          width / 2 + (p.isEven ? -1 : 1) * width * 0.28,
-          350 + rowSpacing * p,
-        ),
+        position: p == 0
+            ? Vector2(blockerX, 350)
+            : Vector2(
+                width / 2 + (p.isEven ? -1 : 1) * width * 0.28,
+                350 + rowSpacing * p,
+              ),
         mass: planetMasses[p],
         radius: planetRadii[p],
         color: planetColors[p],
@@ -271,7 +303,8 @@ final List<LevelData> _generatedLevels = List.generate(25, (i) {
     launchAngleRangeDeg: 90.0,
     minSpeed: 200.0 + tier * 15 + indexInTier * 5,
     maxSpeed: 500.0 + tier * 15 + indexInTier * 5,
-    targetRadius: _generatedTargetRadiusOverrideByListIndex[i] ??
+    targetRadius:
+        _generatedTargetRadiusOverrideByListIndex[i] ??
         (68.0 - tier * 8 - indexInTier * 2),
     targetXFrac: indexInTier.isEven ? 0.75 : 0.25,
     planetMasses: planetMasses,
@@ -533,12 +566,16 @@ final LevelData _orbitalDance = LevelData(
   maxLaunchSpeed: 520,
   planets: [
     PlanetSpec(
-      position: Vector2(450, 650),
+      // Difficulty rebalance: recentered onto the straight rocketStart ->
+      // target line (was (450, 650), well clear of it) so the orbiting
+      // planet actually sits in the naive flight path instead of off to
+      // the side where a direct shot skipped it entirely.
+      position: Vector2(600, 690),
       mass: 3200,
       radius: 50,
       color: const Color(0xFF4C8DFF),
       motion: OrbitMotion(
-        center: Vector2(450, 650),
+        center: Vector2(600, 690),
         radius: 120,
         angularSpeedRadPerSec: 0.6,
       ),
@@ -559,7 +596,11 @@ final LevelData _wormholeShortcut = LevelData(
   maxLaunchSpeed: 480,
   planets: [
     PlanetSpec(
-      position: Vector2(300, 500),
+      // Difficulty rebalance: recentered onto the straight rocketStart ->
+      // target line (was (300, 500), well clear of it) so the naive
+      // direct shot is no longer free — the wormhole is now a genuine
+      // shortcut around a real obstacle, not just decoration.
+      position: Vector2(585, 744),
       mass: 3000,
       radius: 55,
       color: const Color(0xFFFF9142),
@@ -583,17 +624,20 @@ final LevelData _twinTargets = LevelData(
   maxLaunchSpeed: 520,
   planets: [
     PlanetSpec(
-      position: Vector2(450, 650),
-      mass: 2800,
-      radius: 50,
+      // Difficulty rebalance: moved from (450, 650) — clear of both
+      // straight rocketStart -> target lines by ~130px — down to (450,
+      // 820), which sits within ~92px of both symmetric direct paths
+      // (to (200, 150) and to (700, 150)), and enlarged/massed up so
+      // neither target is a free direct shot.
+      position: Vector2(450, 820),
+      mass: 3200,
+      radius: 65,
       color: const Color(0xFFB06CFF),
     ),
   ],
   targetPosition: Vector2(200, 150),
   targetRadius: 55,
-  additionalTargets: [
-    TargetSpec(position: Vector2(700, 150), radius: 55),
-  ],
+  additionalTargets: [TargetSpec(position: Vector2(700, 150), radius: 55)],
   playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
 );
 
@@ -607,7 +651,11 @@ final LevelData _repulsorIntro = LevelData(
   maxLaunchSpeed: 520,
   planets: [
     PlanetSpec(
-      position: Vector2(450, 700),
+      // Difficulty rebalance: recentered onto the straight rocketStart ->
+      // target line (was (450, 700), ~140px clear of it) — a repulsor
+      // sitting on the naive path forces the player to actually plan
+      // around the push instead of being able to ignore it entirely.
+      position: Vector2(600, 690),
       mass: -2600,
       radius: 55,
       color: const Color(0xFFFF6584),
@@ -634,7 +682,10 @@ final LevelData _repulsorGauntlet = LevelData(
       color: const Color(0xFF4C8DFF),
     ),
     PlanetSpec(
-      position: Vector2(600, 450),
+      // Difficulty rebalance: recentered onto the straight rocketStart ->
+      // target line (was (600, 450), ~98px clear of it, barely missing
+      // the direct shot) so the repulsor is a real deflection hazard.
+      position: Vector2(695, 474),
       mass: -2200,
       radius: 50,
       color: const Color(0xFFFF6584),
@@ -721,17 +772,20 @@ final LevelData _sequenceIntro = LevelData(
   ordered: true,
   planets: [
     PlanetSpec(
-      position: Vector2(450, 700),
-      mass: 2800,
-      radius: 55,
+      // Difficulty rebalance: moved from (450, 700) — clear of both the
+      // rocket -> target1 leg (first, ~292px away) and the rocket ->
+      // target2 leg (second, ~142px away) — to (390, 1118), which sits
+      // exactly on the first leg and within ~88px of the second, so
+      // neither hop is a free direct shot.
+      position: Vector2(390, 1118),
+      mass: 3000,
+      radius: 60,
       color: const Color(0xFF4C8DFF),
     ),
   ],
   targetPosition: Vector2(300, 950),
   targetRadius: 58,
-  additionalTargets: [
-    TargetSpec(position: Vector2(750, 150), radius: 58),
-  ],
+  additionalTargets: [TargetSpec(position: Vector2(750, 150), radius: 58)],
   playBounds: const Rect.fromLTWH(0, 0, 900, 1300),
 );
 
@@ -798,6 +852,17 @@ final LevelData _sequenceOrbitalCheckpoints = LevelData(
         angularSpeedRadPerSec: 0.42,
       ),
     ),
+    // Difficulty rebalance: the rocket -> target1 leg (the first hop,
+    // required before either other target counts) was a completely
+    // clear ~417px direct shot — neither of the two planets above is
+    // anywhere near it (they only block legs 2 and 3). This planet sits
+    // exactly on that first leg so it's no longer a free hop.
+    PlanetSpec(
+      position: Vector2(347.5, 1215),
+      mass: 2200,
+      radius: 42,
+      color: const Color(0xFFFF9142),
+    ),
   ],
   targetPosition: Vector2(220, 1050),
   targetRadius: 58,
@@ -858,7 +923,12 @@ final LevelData _blackHoleIntro = LevelData(
   planets: const [],
   blackHoles: [
     BlackHoleSpec(
-      position: Vector2(450, 650),
+      // Difficulty rebalance: moved from (450, 650) — ~171px clear of the
+      // straight rocketStart -> target line, meaning the direct shot used
+      // to skip the hole (and the whole point of the level) entirely — to
+      // dead center on that line, so "aim roughly at the green" now means
+      // aiming into the hole.
+      position: Vector2(610, 710),
       radius: 34,
       mass: 11000,
       exitPosition: Vector2(760, 200),
